@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html dir="rtl" lang="ar">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TwvxCheat - دخول</title>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Cairo', 'Tahoma', sans-serif;
+            background: linear-gradient(135deg, #0a0a0f 0%, #1a1a2e 100%);
+            color: #fff;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .box {
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            border-radius: 24px;
+            padding: 45px 35px;
+            max-width: 420px;
+            width: 100%;
+            text-align: center;
+            box-shadow: 0 25px 60px rgba(0, 0, 0, 0.6);
+        }
+        .box .logo {
+            font-size: 50px;
+            margin-bottom: 10px;
+            background: linear-gradient(135deg, #818cf8, #a78bfa);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .box h1 {
+            font-size: 30px;
+            font-weight: 800;
+            margin-bottom: 5px;
+        }
+        .box h1 span {
+            background: linear-gradient(135deg, #818cf8, #a78bfa);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .box p {
+            color: #94a3b8;
+            font-size: 14px;
+            margin-bottom: 30px;
+        }
+        .input-group {
+            margin-bottom: 18px;
+            text-align: right;
+        }
+        .input-group label {
+            display: block;
+            color: #cbd5e1;
+            font-size: 13px;
+            font-weight: 600;
+            margin-bottom: 6px;
+        }
+        .input-group input {
+            width: 100%;
+            padding: 15px 18px;
+            background: rgba(255, 255, 255, 0.04);
+            border: 2px solid rgba(255, 255, 255, 0.06);
+            border-radius: 14px;
+            color: #f1f5f9;
+            font-size: 16px;
+            transition: all 0.3s ease;
+            font-family: 'Cairo', sans-serif;
+        }
+        .input-group input:focus {
+            border-color: #818cf8;
+            outline: none;
+            background: rgba(255, 255, 255, 0.06);
+            box-shadow: 0 0 0 4px rgba(129, 140, 248, 0.1);
+        }
+        .input-group input::placeholder {
+            color: #475569;
+        }
+        .btn {
+            width: 100%;
+            padding: 15px;
+            background: linear-gradient(135deg, #818cf8, #7c3aed);
+            border: none;
+            border-radius: 14px;
+            color: #fff;
+            font-size: 18px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-top: 8px;
+            font-family: 'Cairo', sans-serif;
+        }
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 30px rgba(129, 140, 248, 0.35);
+        }
+        .btn:active {
+            transform: translateY(0);
+        }
+        .msg {
+            margin-top: 15px;
+            padding: 12px 16px;
+            border-radius: 12px;
+            font-size: 14px;
+            display: none;
+        }
+        .msg.error {
+            display: block;
+            background: rgba(239, 68, 68, 0.12);
+            border: 1px solid rgba(239, 68, 68, 0.2);
+            color: #fca5a5;
+        }
+        .msg.success {
+            display: block;
+            background: rgba(34, 197, 94, 0.12);
+            border: 1px solid rgba(34, 197, 94, 0.2);
+            color: #86efac;
+        }
+        .msg.warning {
+            display: block;
+            background: rgba(251, 191, 36, 0.12);
+            border: 1px solid rgba(251, 191, 36, 0.2);
+            color: #fcd34d;
+        }
+        .footer {
+            margin-top: 25px;
+            color: #475569;
+            font-size: 12px;
+        }
+        .footer i {
+            color: #818cf8;
+        }
+    </style>
+</head>
+<body>
+    <div class="box">
+        <div class="logo">👑</div>
+        <h1>Twvx<span>Cheat</span></h1>
+        <p>🔐 تسجيل الدخول إلى لوحة التحكم</p>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="msg {{ category }}">{{ message }}</div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <form method="POST" action="/login">
+            <div class="input-group">
+                <label>👤 اسم المستخدم</label>
+                <input type="text" name="username" placeholder="أدخل اسم المستخدم" required>
+            </div>
+            <div class="input-group">
+                <label>🔑 كلمة المرور</label>
+                <input type="password" name="password" placeholder="أدخل كلمة المرور" required>
+            </div>
+            <button type="submit" class="btn">🚀 تسجيل الدخول</button>
+        </form>
+
+        <div class="footer">
+            <i class="fas fa-shield-alt"></i> TwvxCheat &copy; 2026
+        </div>
+    </div>
+</body>
+</html>

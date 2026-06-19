@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html dir="rtl" lang="ar">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TwvxCheat - التحقق من المفتاح</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.rtl.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body {
+            background: #0d1117;
+            color: #e6edf3;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .container {
+            max-width: 500px;
+            background: #161b22;
+            padding: 40px;
+            border-radius: 16px;
+            border: 1px solid #30363d;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+        }
+        .logo {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .logo h2 {
+            color: #f0f6fc;
+            font-weight: 700;
+        }
+        .logo h2 span {
+            color: #58a6ff;
+        }
+        .logo p {
+            color: #8b949e;
+        }
+        .form-control {
+            background: #0d1117;
+            border: 1px solid #30363d;
+            color: #f0f6fc;
+            padding: 14px;
+            border-radius: 10px;
+            font-size: 16px;
+        }
+        .form-control:focus {
+            border-color: #58a6ff;
+            box-shadow: 0 0 0 3px rgba(88, 166, 255, 0.15);
+        }
+        .btn-check {
+            background: #238636;
+            border: none;
+            color: white;
+            padding: 14px;
+            border-radius: 10px;
+            font-weight: 700;
+            font-size: 16px;
+            width: 100%;
+            transition: all 0.2s;
+        }
+        .btn-check:hover {
+            background: #2ea043;
+        }
+        .result-box {
+            margin-top: 20px;
+            padding: 16px;
+            border-radius: 10px;
+            text-align: center;
+            font-weight: 600;
+            display: none;
+        }
+        .result-box.valid {
+            display: block;
+            background: #0d2818;
+            border: 1px solid #238636;
+            color: #7ee787;
+        }
+        .result-box.invalid {
+            display: block;
+            background: #2d0b0b;
+            border: 1px solid #da3633;
+            color: #ffa198;
+        }
+        .result-box.expired {
+            display: block;
+            background: #2d1b00;
+            border: 1px solid #da8c00;
+            color: #ffdf7e;
+        }
+        .footer {
+            text-align: center;
+            margin-top: 20px;
+            color: #484f58;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="logo">
+            <h2>Twvx<span>Cheat</span></h2>
+            <p>🔑 التحقق من المفتاح</p>
+        </div>
+
+        <form id="verifyForm">
+            <div class="mb-3">
+                <input type="text" id="keyInput" class="form-control" 
+                       placeholder="أدخل المفتاح للتحقق" required>
+            </div>
+            <button type="submit" class="btn-check">
+                <i class="fas fa-check-circle"></i> تحقق
+            </button>
+        </form>
+
+        <div id="resultBox" class="result-box"></div>
+
+        <div class="footer">
+            <i class="fas fa-shield-alt"></i> TwvxCheat &copy; 2026
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('verifyForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const key = document.getElementById('keyInput').value.trim().toUpperCase();
+            const resultBox = document.getElementById('resultBox');
+            
+            if (!key) {
+                resultBox.className = 'result-box invalid';
+                resultBox.textContent = '❌ الرجاء إدخال مفتاح';
+                return;
+            }
+
+            resultBox.className = 'result-box';
+            resultBox.textContent = '⏳ جاري التحقق...';
+            resultBox.style.display = 'block';
+
+            try {
+                const response = await fetch('/verify', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: 'key=' + encodeURIComponent(key)
+                });
+
+                const data = await response.json();
+
+                if (response.ok && data.status === 'valid') {
+                    resultBox.className = 'result-box valid';
+                    resultBox.innerHTML = `
+                        ✅ ${data.message}<br>
+                        <small style="color:#8b949e;">النوع: ${data.key_type} | الاستخدام: ${data.uses} | الصلاحية: ${data.expiry_days} يوم</small>
+                    `;
+                } else {
+                    resultBox.className = 'result-box invalid';
+                    resultBox.textContent = data.message || '❌ مفتاح غير صحيح';
+                }
+            } catch (error) {
+                resultBox.className = 'result-box invalid';
+                resultBox.textContent = '❌ خطأ في الاتصال بالسيرفر';
+            }
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+
+{% block title %}إنشاء مفتاح جديد{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="fas fa-magic"></i> إنشاء مفتاح جديد</h5>
+            </div>
+            <div class="card-body">
+                <form method="POST" action="/generate">
+                    <div class="mb-3">
+                        <label class="form-label">نوع المفتاح</label>
+                        <select name="key_type" class="form-select">
+                            <option value="basic">📄 عادي (Basic)</option>
+                            <option value="premium">⭐ مميز (Premium)</option>
+                            <option value="vip">👑 VIP</option>
+                        </select>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">عدد المفاتيح</label>
+                        <input type="number" name="count" value="1" min="1" max="10" class="form-control">
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="fas fa-plus-circle"></i> يولد (Generate)
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

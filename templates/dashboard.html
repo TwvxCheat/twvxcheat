@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+
+{% block title %}الرئيسية{% endblock %}
+{% block page_title %}📊 نظرة عامة{% endblock %}
+
+{% block content %}
+<div class="fade-in">
+    <div class="row g-3 mb-4">
+        <div class="col-md-3 col-6">
+            <div class="stat-card text-center">
+                <div class="stat-number">{{ total_keys }}</div>
+                <div class="stat-label">إجمالي المفاتيح</div>
+            </div>
+        </div>
+        <div class="col-md-3 col-6">
+            <div class="stat-card text-center">
+                <div class="stat-number" style="color:#3fb950;">{{ used_keys }}</div>
+                <div class="stat-label">مفعلة</div>
+            </div>
+        </div>
+        <div class="col-md-3 col-6">
+            <div class="stat-card text-center">
+                <div class="stat-number" style="color:#da8c00;">{{ available_keys }}</div>
+                <div class="stat-label">متاحة</div>
+            </div>
+        </div>
+        <div class="col-md-3 col-6">
+            <div class="stat-card text-center">
+                <div class="stat-number" style="color:#58a6ff;">
+                    {% if total_keys > 0 %}
+                        {{ (used_keys / total_keys * 100)|round|int }}%
+                    {% else %}
+                        0%
+                    {% endif %}
+                </div>
+                <div class="stat-label">نسبة التفعيل</div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="card-custom">
+        <div class="card-header">
+            <i class="fas fa-history"></i> آخر المفاتيح
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-custom mb-0">
+                    <thead>
+                        <tr>
+                            <th>المفتاح</th>
+                            <th>النوع</th>
+                            <th>الاستخدام</th>
+                            <th>مستخدم</th>
+                            <th>التاريخ</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for key in recent_keys %}
+                        <tr>
+                            <td><code>{{ key.key }}</code></td>
+                            <td>
+                                {% if key.key_type == 'vip' %}
+                                    <span class="badge-vip">VIP</span>
+                                {% elif key.key_type == 'premium' %}
+                                    <span class="badge-premium">مميز</span>
+                                {% else %}
+                                    <span class="badge-basic">عادي</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ key.current_uses }}/{{ key.max_uses }}</td>
+                            <td>{{ key.used_by or '-' }}</td>
+                            <td>{{ key.used_at or '-' }}</td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="5" class="text-center text-muted py-3">
+                                <i class="fas fa-inbox"></i> لا توجد مفاتيح مستخدمة
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

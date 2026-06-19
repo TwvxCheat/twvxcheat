@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html dir="rtl" lang="ar">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}TwvxCheat{% endblock %}</title>
+    
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.rtl.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Cairo', sans-serif;
+            background: #0d1117;
+            color: #e6edf3;
+            min-height: 100vh;
+        }
+        
+        .sidebar {
+            min-height: 100vh;
+            background: #161b22;
+            border-left: 1px solid #30363d;
+            padding: 0;
+            position: sticky;
+            top: 0;
+        }
+        
+        .sidebar .brand {
+            padding: 20px;
+            border-bottom: 1px solid #30363d;
+            text-align: center;
+        }
+        
+        .sidebar .brand h4 {
+            margin: 0;
+            font-weight: 700;
+            font-size: 20px;
+            color: #f0f6fc;
+        }
+        
+        .sidebar .brand h4 span {
+            color: #58a6ff;
+        }
+        
+        .sidebar .brand small {
+            color: #8b949e;
+            font-size: 12px;
+        }
+        
+        .sidebar .user-badge {
+            padding: 15px 20px;
+            border-bottom: 1px solid #30363d;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .sidebar .user-badge .avatar {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: #58a6ff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 16px;
+            color: #0d1117;
+        }
+        
+        .sidebar .user-badge .user-name {
+            font-weight: 600;
+            font-size: 14px;
+            color: #f0f6fc;
+        }
+        
+        .sidebar .user-badge .user-role {
+            font-size: 11px;
+            color: #8b949e;
+        }
+        
+        .sidebar .nav {
+            padding: 10px;
+        }
+        
+        .sidebar .nav-link {
+            color: #8b949e;
+            padding: 10px 16px;
+            border-radius: 8px;
+            margin: 2px 0;
+            transition: all 0.2s;
+            font-weight: 600;
+            font-size: 14px;
+        }
+        
+        .sidebar .nav-link i {
+            margin-left: 10px;
+            width: 20px;
+            text-align: center;
+        }
+        
+        .sidebar .nav-link:hover {
+            color: #f0f6fc;
+            background: #21262d;
+        }
+        
+        .sidebar .nav-link.active {
+            color: #f0f6fc;
+            background: #21262d;
+        }
+        
+        .sidebar .nav-link.logout {
+            color: #f85149;
+            margin-top: 10px;
+            border-top: 1px solid #30363d;
+            padding-top: 15px;
+        }
+        
+        .sidebar .nav-link.logout:hover {
+            background: #21262d;
+        }
+        
+        .main-content {
+            padding: 20px 25px;
+        }
+        
+        .top-bar {
+            background: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 12px;
+            padding: 12px 20px;
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .top-bar .page-title {
+            font-weight: 700;
+            font-size: 18px;
+            color: #f0f6fc;
+        }
+        
+        .top-bar .page-title i {
+            color: #58a6ff;
+            margin-left: 10px;
+        }
+        
+        .top-bar .datetime {
+            color: #8b949e;
+            font-size: 13px;
+        }
+        
+        .stat-card {
+            background: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 12px;
+            padding: 18px 20px;
+            transition: all 0.2s;
+            height: 100%;
+        }
+        
+        .stat-card:hover {
+            border-color: #58a6ff;
+        }
+        
+        .stat-card .stat-icon {
+            width: 44px;
+            height: 44px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+        }
+        
+        .stat-card .stat-number {
+            font-size: 26px;
+            font-weight: 700;
+            color: #f0f6fc;
+            line-height: 1.2;
+        }
+        
+        .stat-card .stat-label {
+            color: #8b949e;
+            font-size: 13px;
+        }
+        
+        .card-custom {
+            background: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 12px;
+            overflow: hidden;
+            margin-bottom: 20px;
+        }
+        
+        .card-custom .card-header {
+            background: transparent;
+            border-bottom: 1px solid #30363d;
+            padding: 14px 20px;
+            font-weight: 700;
+            font-size: 15px;
+            color: #f0f6fc;
+        }
+        
+        .card-custom .card-header i {
+            color: #58a6ff;
+            margin-left: 8px;
+        }
+        
+        .card-custom .card-body {
+            padding: 18px 20px;
+        }
+        
+        .btn-primary-custom {
+            background: #238636;
+            border: none;
+            color: white;
+            padding: 8px 18px;
+            border-radius: 8px;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+        
+        .btn-primary-custom:hover {
+            background: #2ea043;
+            color: white;
+        }
+        
+        .btn-primary-custom2 {
+            background: #1f6feb;
+            border: none;
+            color: white;
+            padding: 8px 18px;
+            border-radius: 8px;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+        
+        .btn-primary-custom2:hover {
+            background: #388bfd;
+            color: white;
+        }
+        
+        .btn-danger-custom {
+            background: #da3633;
+            border: none;
+            color: white;
+            padding: 6px 14px;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 13px;
+            transition: all 0.2s;
+        }
+        
+        .btn-danger-custom:hover {
+            background: #f85149;
+            color: white;
+        }
+        
+        .table-custom {
+            font-size: 13px;
+            color: #e6edf3;
+        }
+        
+        .table-custom thead th {
+            color: #8b949e;
+            font-weight: 600;
+            padding: 10px 12px;
+            border-bottom: 1px solid #30363d;
+        }
+        
+        .table-custom tbody td {
+            padding: 10px 12px;
+            border-bottom: 1px solid #21262d;
+            vertical-align: middle;
+        }
+        
+        .table-custom tbody tr:hover {
+            background: #21262d;
+        }
+        
+        .badge-vip {
+            background: #da8c00;
+            color: white;
+            padding: 3px 12px;
+            border-radius: 12px;
+            font-weight: 600;
+            font-size: 11px;
+        }
+        
+        .badge-premium {
+            background: #8b5cf6;
+            color: white;
+            padding: 3px 12px;
+            border-radius: 12px;
+            font-weight: 600;
+            font-size: 11px;
+        }
+        
+        .badge-basic {
+            background: #30363d;
+            color: #8b949e;
+            padding: 3px 12px;
+            border-radius: 12px;
+            font-weight: 600;
+            font-size: 11px;
+        }
+        
+        .form-control-custom {
+            background: #0d1117;
+            border: 1px solid #30363d;
+            border-radius: 8px;
+            padding: 10px 14px;
+            color: #f0f6fc;
+            font-size: 14px;
+        }
+        
+        .form-control-custom:focus {
+            border-color: #58a6ff;
+            box-shadow: 0 0 0 3px rgba(88, 166, 255, 0.15);
+            background: #0d1117;
+            color: #f0f6fc;
+        }
+        
+        .form-control-custom::placeholder {
+            color: #484f58;
+        }
+        
+        .form-select-custom {
+            background: #0d1117;
+            border: 1px solid #30363d;
+            border-radius: 8px;
+            padding: 10px 14px;
+            color: #f0f6fc;
+            font-size: 14px;
+        }
+        
+        .form-select-custom option {
+            background: #0d1117;
+            color: #f0f6fc;
+        }
+        
+        .alert {
+            border-radius: 8px;
+            padding: 10px 14px;
+            font-size: 13px;
+            border: 1px solid transparent;
+        }
+        
+        .alert-success {
+            background: #0d2818;
+            border-color: #238636;
+            color: #7ee787;
+        }
+        
+        .alert-danger {
+            background: #2d0b0b;
+            border-color: #da3633;
+            color: #ffa198;
+        }
+        
+        .alert-warning {
+            background: #2d1b00;
+            border-color: #da8c00;
+            color: #ffdf7e;
+        }
+        
+        .alert-info {
+            background: #0d1f3c;
+            border-color: #1f6feb;
+            color: #79c0ff;
+        }
+        
+        .badge-count {
+            background: #1f6feb;
+            color: white;
+            font-size: 10px;
+            padding: 2px 8px;
+            border-radius: 12px;
+            margin-right: 8px;
+        }
+        
+        @media (max-width: 768px) {
+            .sidebar {
+                min-height: auto;
+                position: relative;
+            }
+            .main-content {
+                padding: 15px;
+            }
+            .top-bar {
+                flex-direction: column;
+                gap: 8px;
+                text-align: center;
+            }
+            .stat-card .stat-number {
+                font-size: 20px;
+            }
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .fade-in {
+            animation: fadeIn 0.3s ease;
+        }
+    </style>
+    
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+    <div class="container-fluid">
+        <div class="row">
+            <!-- ===== Sidebar ===== -->
+            <div class="col-md-2 sidebar">
+                <div class="brand">
+                    <h4>Twvx<span>Cheat</span></h4>
+                    <small>إدارة المفاتيح</small>
+                </div>
+                
+                <div class="user-badge">
+                    <div class="avatar">{{ session.get('username', 'U')[0].upper() }}</div>
+                    <div>
+                        <div class="user-name">{{ session.get('username', 'زائر') }}</div>
+                        <div class="user-role">
+                            {% if session.get('role') == 'admin' %}
+                                <i class="fas fa-shield-alt" style="color:#da8c00;"></i> مدير
+                            {% else %}
+                                <i class="fas fa-user" style="color:#8b949e;"></i> مستخدم
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                
+                <nav class="nav flex-column">
+                    <a class="nav-link {% if request.endpoint == 'dashboard' %}active{% endif %}" 
+                       href="{{ url_for('dashboard') }}">
+                        <i class="fas fa-home"></i> الرئيسية
+                    </a>
+                    <a class="nav-link {% if request.endpoint == 'keys_page' %}active{% endif %}" 
+                       href="{{ url_for('keys_page') }}">
+                        <i class="fas fa-key"></i> المفاتيح
+                        <span class="badge-count">{{ keys|length if keys else 0 }}</span>
+                    </a>
+                    <a class="nav-link logout" href="{{ url_for('logout') }}">
+                        <i class="fas fa-sign-out-alt"></i> خروج
+                    </a>
+                </nav>
+            </div>
+            
+            <!-- ===== Main ===== -->
+            <div class="col-md-10 main-content">
+                <!-- Top Bar -->
+                <div class="top-bar fade-in">
+                    <div class="page-title">
+                        <i class="fas fa-{% if request.endpoint == 'dashboard' %}home{% elif request.endpoint == 'keys_page' %}key{% else %}cog{% endif %}"></i>
+                        {% block page_title %}لوحة التحكم{% endblock %}
+                    </div>
+                    <div class="datetime">
+                        <i class="far fa-clock"></i>
+                        <span id="currentDateTime"></span>
+                    </div>
+                </div>
+                
+                <!-- Messages -->
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                    {% if messages %}
+                        {% for category, message in messages %}
+                            <div class="alert alert-{{ category }} fade-in">
+                                <i class="fas fa-{% if category == 'success' %}check-circle{% elif category == 'danger' %}exclamation-circle{% elif category == 'warning' %}warning{% else %}info-circle{% endif %}"></i>
+                                {{ message }}
+                                <button type="button" class="btn-close float-start" data-bs-dismiss="alert" style="filter: invert(1); font-size: 12px;"></button>
+                            </div>
+                        {% endfor %}
+                    {% endif %}
+                {% endwith %}
+                
+                <!-- Content -->
+                {% block content %}{% endblock %}
+            </div>
+        </div>
+    </div>
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        function updateDateTime() {
+            const now = new Date();
+            
+            // التاريخ بصيغة 2026/06/19
+            const year = now.getFullYear();
+            const month = String(now.getMonth() + 1).padStart(2, '0');
+            const day = String(now.getDate()).padStart(2, '0');
+            const dateStr = `${year}/${month}/${day}`;
+            
+            // الوقت
+            let hours = now.getHours();
+            let minutes = String(now.getMinutes()).padStart(2, '0');
+            let seconds = String(now.getSeconds()).padStart(2, '0');
+            const ampm = hours >= 12 ? 'م' : 'ص';
+            hours = hours % 12 || 12;
+            
+            document.getElementById('currentDateTime').textContent = 
+                `${dateStr} ${hours}:${minutes}:${seconds} ${ampm}`;
+        }
+        updateDateTime();
+        setInterval(updateDateTime, 1000);
+        
+        setTimeout(() => {
+            document.querySelectorAll('.alert').forEach(el => {
+                const bsAlert = new bootstrap.Alert(el);
+                bsAlert.close();
+            });
+        }, 5000);
+    </script>
+    
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

@@ -1,0 +1,449 @@
+{% extends "base.html" %}
+
+{% block title %}المفاتيح{% endblock %}
+{% block page_title %}🔑 المفاتيح{% endblock %}
+
+{% block content %}
+<div class="fade-in">
+    <!-- ===== الإحصائيات ===== -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-3 col-6">
+            <div class="stat-card text-center">
+                <div class="stat-number">{{ total }}</div>
+                <div class="stat-label">إجمالي</div>
+            </div>
+        </div>
+        <div class="col-md-3 col-6">
+            <div class="stat-card text-center">
+                <div class="stat-number">{{ keys|selectattr('used', 'equalto', 1)|list|length }}</div>
+                <div class="stat-label">مفعلة</div>
+            </div>
+        </div>
+        <div class="col-md-3 col-6">
+            <div class="stat-card text-center">
+                <div class="stat-number">{{ keys|selectattr('used', 'equalto', 0)|list|length }}</div>
+                <div class="stat-label">غير مفعلة</div>
+            </div>
+        </div>
+        <div class="col-md-3 col-6">
+            <div class="stat-card text-center">
+                <div class="stat-number" style="color:#58a6ff;">+</div>
+                <div class="stat-label">جديد</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== تفعيل مفتاح ===== -->
+    <div class="card-custom">
+        <div class="card-header">
+            <i class="fas fa-unlock"></i> تفعيل مفتاح
+        </div>
+        <div class="card-body">
+            <div class="row g-2">
+                <div class="col-md-8">
+                    <input type="text" id="activateKeyInput" class="form-control form-control-custom" 
+                           placeholder="أدخل المفتاح للتفعيل">
+                </div>
+                <div class="col-md-4">
+                    <button onclick="activateKey()" class="btn btn-primary-custom w-100">
+                        <i class="fas fa-check"></i> تفعيل
+                    </button>
+                </div>
+            </div>
+            <div id="activateResult" class="mt-2"></div>
+        </div>
+    </div>
+
+    <!-- ===== إضافة مفتاح ===== -->
+    <div class="card-custom">
+        <div class="card-header">
+            <i class="fas fa-plus"></i> إضافة مفتاح
+        </div>
+        <div class="card-body">
+            <form method="POST" action="/add_key" class="row g-2">
+                <div class="col-md-4">
+                    <input type="text" name="key" class="form-control form-control-custom" 
+                           placeholder="المفتاح" required>
+                </div>
+                <div class="col-md-3">
+                    <select name="key_type" class="form-select form-select-custom">
+                        <option value="basic">عادي</option>
+                        <option value="premium">مميز</option>
+                        <option value="vip">VIP</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <input type="number" name="max_uses" value="1" min="1" 
+                           class="form-control form-control-custom" placeholder="استخدامات">
+                </div>
+                <div class="col-md-2">
+                    <input type="number" name="expiry_days" value="30" min="1" 
+                           class="form-control form-control-custom" placeholder="صلاحية">
+                </div>
+                <div class="col-md-1">
+                    <button type="submit" class="btn btn-primary-custom2 w-100">
+                        <i class="fas fa-save"></i>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ===== إنشاء تلقائي ===== -->
+    <div class="card-custom">
+        <div class="card-header">
+            <i class="fas fa-magic"></i> إنشاء تلقائي
+        </div>
+        <div class="card-body">
+            <form method="POST" action="/generate" class="row g-2">
+                <div class="col-md-4">
+                    <select name="key_type" class="form-select form-select-custom">
+                        <option value="basic">عادي</option>
+                        <option value="premium">مميز</option>
+                        <option value="vip">VIP</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <input type="number" name="max_uses" value="1" min="1" 
+                           class="form-control form-control-custom" placeholder="استخدامات">
+                </div>
+                <div class="col-md-3">
+                    <input type="number" name="expiry_days" value="30" min="1" 
+                           class="form-control form-control-custom" placeholder="صلاحية">
+                </div>
+                <div class="col-md-2">
+                    <button type="submit" class="btn btn-primary-custom w-100">
+                        <i class="fas fa-wand-magic"></i> يولد
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ===== قائمة المفاتيح ===== -->
+    <div class="card-custom">
+        <div class="card-header">
+            <i class="fas fa-list"></i> قائمة المفاتيح
+            <span class="badge-count">{{ total }}</span>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-custom mb-0">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>المفتاح</th>
+                            <th>النوع</th>
+                            <th>الاستخدام</th>
+                            <th>الصلاحية</th>
+                            <th>الوقت المتبقي</th>
+                            <th>الحالة</th>
+                            <th>مستخدم</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for key in keys %}
+                        <tr>
+                            <td>{{ key.id }}</td>
+                            <td>
+                                <code id="key-{{ key.id }}">{{ key.key }}</code>
+                                <button onclick="copyKey('{{ key.key }}')" class="btn btn-sm btn-outline-secondary ms-1" 
+                                        style="border: none; padding: 2px 8px; color: #58a6ff;" title="نسخ">
+                                    <i class="fas fa-copy"></i>
+                                </button>
+                            </td>
+                            <td>
+                                {% if key.key_type == 'vip' %}
+                                    <span class="badge-vip">VIP</span>
+                                {% elif key.key_type == 'premium' %}
+                                    <span class="badge-premium">مميز</span>
+                                {% else %}
+                                    <span class="badge-basic">عادي</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ key.current_uses }}/{{ key.max_uses }}</td>
+                            <td>{{ key.expiry_days or 30 }} يوم</td>
+                            <td>
+                                {% if key.current_uses >= key.max_uses %}
+                                    <span class="text-muted">مستهلك</span>
+                                {% elif key.created_at and key.expiry_days %}
+                                    <span id="remaining-{{ key.id }}" class="remaining-time" 
+                                          data-created="{{ key.created_at }}" 
+                                          data-expiry="{{ key.expiry_days }}"
+                                          data-uses="{{ key.current_uses }}"
+                                          data-max="{{ key.max_uses }}">
+                                        جاري الحساب...
+                                    </span>
+                                {% else %}
+                                    -
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if key.current_uses >= key.max_uses %}
+                                    <span class="badge bg-danger">مستهلك</span>
+                                {% elif key.used == 1 %}
+                                    <span class="badge bg-success">مفعل</span>
+                                {% else %}
+                                    <span class="badge bg-warning text-dark">غير مفعل</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ key.used_by or '-' }}</td>
+                            <td>
+                                <a href="/delete/{{ key.id }}" class="btn btn-danger-custom" 
+                                   onclick="return confirm('حذف {{ key.key }}؟')">
+                                    <i class="fas fa-trash"></i>
+                                </a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            
+            <!-- ===== Pagination ===== -->
+            {% if total_pages > 1 %}
+            <div class="d-flex justify-content-between align-items-center mt-3 px-3 pb-3">
+                <div>
+                    <span class="text-muted" style="font-size: 13px;">
+                        عرض {{ (page-1)*10 + 1 }} - 
+                        {% if page == total_pages %}
+                            {{ total }}
+                        {% else %}
+                            {{ page*10 }}
+                        {% endif %}
+                        من {{ total }}
+                    </span>
+                </div>
+                <nav>
+                    <ul class="pagination pagination-sm mb-0">
+                        {% if page > 1 %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page-1 }}" 
+                               style="background: #161b22; border-color: #30363d; color: #f0f6fc;">
+                                <i class="fas fa-chevron-right"></i>
+                            </a>
+                        </li>
+                        {% endif %}
+                        
+                        {% set start = [1, page-2]|max %}
+                        {% set end = [total_pages, page+2]|min %}
+                        
+                        {% if start > 1 %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page=1" 
+                               style="background: #161b22; border-color: #30363d; color: #f0f6fc;">1</a>
+                        </li>
+                        {% if start > 2 %}
+                        <li class="page-item disabled">
+                            <span class="page-link" style="background: #161b22; border-color: #30363d; color: #8b949e;">...</span>
+                        </li>
+                        {% endif %}
+                        {% endif %}
+                        
+                        {% for p in range(start, end + 1) %}
+                        <li class="page-item {% if p == page %}active{% endif %}">
+                            <a class="page-link" href="?page={{ p }}" 
+                               style="{% if p == page %}background: #1f6feb; border-color: #1f6feb; color: white;{% else %}background: #161b22; border-color: #30363d; color: #f0f6fc;{% endif %}">
+                                {{ p }}
+                            </a>
+                        </li>
+                        {% endfor %}
+                        
+                        {% if end < total_pages %}
+                        {% if end < total_pages - 1 %}
+                        <li class="page-item disabled">
+                            <span class="page-link" style="background: #161b22; border-color: #30363d; color: #8b949e;">...</span>
+                        </li>
+                        {% endif %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ total_pages }}" 
+                               style="background: #161b22; border-color: #30363d; color: #f0f6fc;">{{ total_pages }}</a>
+                        </li>
+                        {% endif %}
+                        
+                        {% if page < total_pages %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page+1 }}" 
+                               style="background: #161b22; border-color: #30363d; color: #f0f6fc;">
+                                <i class="fas fa-chevron-left"></i>
+                            </a>
+                        </li>
+                        {% endif %}
+                    </ul>
+                </nav>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<script>
+// ===== تفعيل المفتاح =====
+function activateKey() {
+    const key = document.getElementById('activateKeyInput').value.trim().toUpperCase();
+    const resultDiv = document.getElementById('activateResult');
+    
+    if (!key) {
+        resultDiv.innerHTML = `<div class="alert alert-danger">الرجاء إدخال مفتاح</div>`;
+        return;
+    }
+    
+    resultDiv.innerHTML = `<div class="alert alert-info">جاري التفعيل...</div>`;
+    
+    fetch('/activate', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({key: key})
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.status === 'success') {
+            resultDiv.innerHTML = `<div class="alert alert-success">✅ ${data.message}</div>`;
+            setTimeout(() => location.reload(), 1200);
+        } else {
+            resultDiv.innerHTML = `<div class="alert alert-danger">❌ ${data.message}</div>`;
+        }
+    })
+    .catch(() => {
+        resultDiv.innerHTML = `<div class="alert alert-danger">حدث خطأ</div>`;
+    });
+}
+
+// ===== نسخ المفتاح =====
+function copyKey(key) {
+    navigator.clipboard.writeText(key).then(() => {
+        const resultDiv = document.getElementById('activateResult');
+        if (resultDiv) {
+            resultDiv.innerHTML = `<div class="alert alert-success">✅ تم نسخ المفتاح <strong>${key}</strong></div>`;
+            setTimeout(() => { resultDiv.innerHTML = ''; }, 2000);
+        }
+    }).catch(() => {
+        const textArea = document.createElement('textarea');
+        textArea.value = key;
+        document.body.appendChild(textArea);
+        textArea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textArea);
+        
+        const resultDiv = document.getElementById('activateResult');
+        if (resultDiv) {
+            resultDiv.innerHTML = `<div class="alert alert-success">✅ تم نسخ المفتاح <strong>${key}</strong></div>`;
+            setTimeout(() => { resultDiv.innerHTML = ''; }, 2000);
+        }
+    });
+}
+
+// ===== تحديث الوقت المتبقي =====
+function updateRemainingTimes() {
+    const elements = document.querySelectorAll('.remaining-time');
+    const now = new Date();
+    
+    elements.forEach(el => {
+        const createdStr = el.dataset.created;
+        const expiryDays = parseInt(el.dataset.expiry);
+        const currentUses = parseInt(el.dataset.uses) || 0;
+        const maxUses = parseInt(el.dataset.max) || 1;
+        
+        // إذا وصل للحد الأقصى يبقى مستهلك
+        if (currentUses >= maxUses) {
+            el.textContent = 'مستهلك';
+            el.style.color = '#8b949e';
+            return;
+        }
+        
+        if (!createdStr || !expiryDays) {
+            el.textContent = '-';
+            return;
+        }
+        
+        try {
+            let created;
+            let dateStr = createdStr.trim();
+            
+            if (dateStr.includes('/')) {
+                const parts = dateStr.split(' ');
+                const dateParts = parts[0].split('/');
+                const timeParts = parts.length > 1 ? parts[1].split(':') : ['00', '00', '00'];
+                
+                created = new Date(
+                    parseInt(dateParts[0]),
+                    parseInt(dateParts[1]) - 1,
+                    parseInt(dateParts[2]),
+                    parseInt(timeParts[0] || 0),
+                    parseInt(timeParts[1] || 0),
+                    parseInt(timeParts[2] || 0)
+                );
+            } else if (dateStr.includes('-')) {
+                const parts = dateStr.split(' ');
+                const dateParts = parts[0].split('-');
+                const timeParts = parts.length > 1 ? parts[1].split(':') : ['00', '00', '00'];
+                
+                created = new Date(
+                    parseInt(dateParts[0]),
+                    parseInt(dateParts[1]) - 1,
+                    parseInt(dateParts[2]),
+                    parseInt(timeParts[0] || 0),
+                    parseInt(timeParts[1] || 0),
+                    parseInt(timeParts[2] || 0)
+                );
+            } else {
+                created = new Date(dateStr);
+            }
+            
+            if (isNaN(created.getTime())) {
+                el.textContent = '⚠️';
+                el.style.color = '#f85149';
+                return;
+            }
+            
+            const expiry = new Date(created);
+            expiry.setDate(expiry.getDate() + expiryDays);
+            
+            const diff = expiry - now;
+            
+            if (diff <= 0) {
+                el.textContent = '⛔ انتهى';
+                el.style.color = '#f85149';
+                return;
+            }
+            
+            const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+            const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+            const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+            const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+            
+            if (days > 0) {
+                el.textContent = `${days}يوم ${hours}س`;
+                el.style.color = '#7ee787';
+            } else if (hours > 0) {
+                el.textContent = `${hours}س ${minutes}د`;
+                el.style.color = '#fcd34d';
+            } else if (minutes > 0) {
+                el.textContent = `${minutes}د ${seconds}ث`;
+                el.style.color = '#ffa198';
+            } else {
+                el.textContent = `${seconds}ث`;
+                el.style.color = '#f85149';
+            }
+        } catch(e) {
+            el.textContent = '-';
+        }
+    });
+}
+
+// ===== تشغيل التحديث =====
+updateRemainingTimes();
+setInterval(updateRemainingTimes, 1000);
+
+// ===== تفعيل بالضغط على Enter =====
+document.addEventListener('DOMContentLoaded', function() {
+    const input = document.getElementById('activateKeyInput');
+    if (input) {
+        input.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') activateKey();
+        });
+    }
+});
+</script>
+{% endblock %}
