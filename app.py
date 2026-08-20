@@ -16,15 +16,15 @@ app.secret_key = os.environ.get("SECRET_KEY", "supersecretkey_twvx_2026")
 ADMIN_USER = "TwvxCheat"
 ADMIN_PASS = "Twvx1"
 
-# ================= KEY CLASS (مطابق لتصميم dashboard.html) =================
+# ================= KEY CLASS =================
 class KeyModel:
     def __init__(self, id, key_code, key_type='basic', status='active', used_by='-', created_at=''):
         self.id = id
         self.key_code = key_code
         self.key = key_code         # لدعم {{ key.key }}
-        self.key_type = key_type   # لدعم key.key_type (vip, premium, basic)
-        self.status = status       # active / used
-        self.used_by = used_by
+        self.key_type = key_type or 'basic' # لدعم key.key_type
+        self.status = status or 'active'    # active / used
+        self.used_by = used_by or '-'
         self.created_at = created_at
 
     def __getitem__(self, item):
@@ -63,26 +63,37 @@ def connect_db():
     except Exception as e:
         return None, str(e)
 
-# ================= INIT DB =================
+# ================= INIT & MIGRATE DB =================
 def init_db():
     conn, err = connect_db()
     if conn:
         try:
             with conn.cursor() as cur:
+                # 1. إنشاء الجدول إذا لم يكن موجوداً
                 cur.execute("""
                     CREATE TABLE IF NOT EXISTS `keys` (
                         `id` INT AUTO_INCREMENT PRIMARY KEY,
                         `key_code` VARCHAR(255) UNIQUE NOT NULL,
-                        `key_type` VARCHAR(50) DEFAULT 'basic',
                         `status` VARCHAR(50) DEFAULT 'active',
-                        `used_by` VARCHAR(255) DEFAULT NULL,
                         `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                     );
                 """)
+                
+                # 2. إضافة الأعمدة الناقصة تلقائياً إلى الجدول الحالي
+                columns_to_add = [
+                    ('key_type', "VARCHAR(50) DEFAULT 'basic'"),
+                    ('used_by', "VARCHAR(255) DEFAULT '-'")
+                ]
+                for col_name, col_type in columns_to_add:
+                    try:
+                        cur.execute(f"ALTER TABLE `keys` ADD COLUMN `{col_name}` {col_type};")
+                    except Exception:
+                        pass  # العمود موجود بالفعل
             conn.close()
         except Exception as e:
             print("Init DB Error:", e)
 
+# تشغيل تحديث الجدول عند إقلاع التطبيق
 init_db()
 
 def check_admin():
@@ -139,19 +150,26 @@ def dashboard():
     elif conn:
         try:
             with conn.cursor() as cur:
-                cur.execute("SELECT id, key_code, key_type, status, used_by, created_at FROM `keys` ORDER BY id DESC")
-                rows = cur.fetchall()
-                for r in rows:
-                    keys_list.append(KeyModel(r[0], r[1], r[2] or 'basic', r[3] or 'active', r[4] or '-', r[5]))
+                # محاولة جلب البيانات مع الحقول الناقصة
+                try:
+                    cur.execute("SELECT id, key_code, key_type, status, used_by, created_at FROM `keys` ORDER BY id DESC")
+                    rows = cur.fetchall()
+                    for r in rows:
+                        keys_list.append(KeyModel(r[0], r[1], r[2], r[3], r[4], r[5]))
+                except Exception:
+                    # في حال لم تتحدث القاعدة بعد، استعلام احتياطي متوافق
+                    cur.execute("SELECT id, key_code, status, created_at FROM `keys` ORDER BY id DESC")
+                    rows = cur.fetchall()
+                    for r in rows:
+                        keys_list.append(KeyModel(r[0], r[1], 'basic', r[2], '-', r[3]))
             conn.close()
         except Exception as e:
             flash(f"خطأ أثناء جلب البيانات: {e}", "danger")
 
-    # حساب الإحصائيات التي يطلبها قالب dashboard.html
     total_keys = len(keys_list)
-    used_keys = sum(1 for k in keys_list if k.status != 'active')
+    used_keys = sum(1 for k in keys_list if str(k.status).lower() not in ['active', 'valid'])
     available_keys = total_keys - used_keys
-    recent_keys = keys_list[:10]  # أول 10 مفاتيح للتصميم
+    recent_keys = keys_list[:10]
 
     return render_template(
         "dashboard.html",
@@ -179,7 +197,10 @@ def generate():
         elif conn:
             try:
                 with conn.cursor() as cur:
-                    cur.execute("INSERT INTO `keys` (`key_code`, `key_type`, `status`) VALUES (%s, %s, %s)", (new_key, key_type, 'active'))
+                    try:
+                        cur.execute("INSERT INTO `keys` (`key_code`, `key_type`, `status`) VALUES (%s, %s, %s)", (new_key, key_type, 'active'))
+                    except Exception:
+                        cur.execute("INSERT INTO `keys` (`key_code`, `status`) VALUES (%s, %s)", (new_key, 'active'))
                 conn.close()
                 flash(f"تم إنشاء المفتاح بنجاح: {new_key}", "success")
             except Exception as e:
@@ -218,19 +239,25 @@ def search():
     if conn:
         try:
             with conn.cursor() as cur:
-                if q == "":
-                    cur.execute("SELECT id, key_code, key_type, status, used_by, created_at FROM `keys` ORDER BY id DESC")
-                else:
-                    cur.execute("SELECT id, key_code, key_type, status, used_by, created_at FROM `keys` WHERE `key_code` LIKE %s", ('%' + q + '%',))
-                rows = cur.fetchall()
-                for r in rows:
-                    keys_list.append(KeyModel(r[0], r[1], r[2] or 'basic', r[3] or 'active', r[4] or '-', r[5]))
+                try:
+                    if q == "":
+                        cur.execute("SELECT id, key_code, key_type, status, used_by, created_at FROM `keys` ORDER BY id DESC")
+                    else:
+                        cur.execute("SELECT id, key_code, key_type, status, used_by, created_at FROM `keys` WHERE `key_code` LIKE %s", ('%' + q + '%',))
+                    rows = cur.fetchall()
+                    for r in rows:
+                        keys_list.append(KeyModel(r[0], r[1], r[2], r[3], r[4], r[5]))
+                except Exception:
+                    cur.execute("SELECT id, key_code, status, created_at FROM `keys` WHERE `key_code` LIKE %s", ('%' + q + '%',))
+                    rows = cur.fetchall()
+                    for r in rows:
+                        keys_list.append(KeyModel(r[0], r[1], 'basic', r[2], '-', r[3]))
             conn.close()
         except Exception as e:
             flash(f"خطأ أثناء البحث: {e}", "danger")
 
     total_keys = len(keys_list)
-    used_keys = sum(1 for k in keys_list if k.status != 'active')
+    used_keys = sum(1 for k in keys_list if str(k.status).lower() not in ['active', 'valid'])
     available_keys = total_keys - used_keys
 
     return render_template(
