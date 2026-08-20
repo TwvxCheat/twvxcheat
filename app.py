@@ -152,6 +152,27 @@ def search():
 
     return render_template("dashboard.html", keys=keys)
 
+# ================= VERIFY =================
+@app.route("/verify", methods=["GET"])
+def verify():
+    key = request.args.get("key", "")
+    if not key:
+        return "INVALID", 200, {'Content-Type': 'text/plain'}
+    
+    try:
+        conn = connect_db()
+        cur = conn.cursor()
+        cur.execute("SELECT * FROM keys WHERE key = %s", (key,))
+        result = cur.fetchone()
+        conn.close()
+        
+        if result:
+            return "VALID", 200, {'Content-Type': 'text/plain'}
+        else:
+            return "INVALID", 200, {'Content-Type': 'text/plain'}
+    except Exception as e:
+        return "ERROR", 500, {'Content-Type': 'text/plain'}
+
 # ================= RUN =================
 application = app
 
