@@ -9,19 +9,18 @@ from urllib.parse import urlparse, unquote
 app = Flask(__name__)
 
 # ================= SECRET =================
-app.secret_key = os.environ.get("SECRET_KEY", "supersecretkey")
+app.secret_key = os.environ.get("SECRET_KEY", "supersecretkey_twvx_2026")
 
 # ================= ADMIN =================
 ADMIN_USER = "TwvxCheat"
 ADMIN_PASS = "Twvx1"
 
-# ================= KEY CLASS FOR TEMPLATE COMPATIBILITY =================
+# ================= KEY CLASS (دعم جميع طرق الاستدعاء في HTML) =================
 class KeyItem:
-    """كائن مرن يتوافق مع أي طريقة كتابة داخل dashboard.html"""
     def __init__(self, id, key_code, status='active', created_at=''):
         self.id = id
         self.key_code = key_code
-        self.key = key_code
+        self.key = key_code  # لدعم key.key في حال وجودها بالـ HTML
         self.status = status
         self.created_at = created_at
 
@@ -35,7 +34,7 @@ class KeyItem:
 def connect_db():
     db_url = os.environ.get("DATABASE_URL")
     if not db_url:
-        return None
+        return None, "لم يتم ضبط متغير DATABASE_URL في إعدادات Render"
     
     try:
         url = urlparse(db_url)
@@ -43,12 +42,12 @@ def connect_db():
         password = unquote(url.password) if url.password else ""
         username = unquote(url.username) if url.username else ""
 
-        # إعداد SSL آمن لـ Aiven MySQL
+        # إعدادات SSL لمنصة Aiven
         ctx = ssl.create_default_context()
         ctx.check_hostname = False
         ctx.verify_mode = ssl.CERT_NONE
 
-        return pymysql.connect(
+        conn = pymysql.connect(
             host=url.hostname,
             port=url.port or 3306,
             user=username,
@@ -58,31 +57,29 @@ def connect_db():
             ssl=ctx,
             connect_timeout=10
         )
+        return conn, None
     except Exception as e:
-        print("DB Connection Error:", e)
-        return None
+        return None, str(e)
 
 # ================= INIT DB =================
 def init_db():
-    try:
-        conn = connect_db()
-        if not conn:
-            return False
-        with conn.cursor() as cur:
-            cur.execute("""
-                CREATE TABLE IF NOT EXISTS `keys` (
-                    `id` INT AUTO_INCREMENT PRIMARY KEY,
-                    `key_code` VARCHAR(255) UNIQUE NOT NULL,
-                    `status` VARCHAR(50) DEFAULT 'active',
-                    `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                );
-            """)
-        conn.close()
-        return True
-    except Exception as e:
-        print("DB Init Error:", e)
-        return False
+    conn, err = connect_db()
+    if conn:
+        try:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    CREATE TABLE IF NOT EXISTS `keys` (
+                        `id` INT AUTO_INCREMENT PRIMARY KEY,
+                        `key_code` VARCHAR(255) UNIQUE NOT NULL,
+                        `status` VARCHAR(50) DEFAULT 'active',
+                        `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    );
+                """)
+            conn.close()
+        except Exception as e:
+            print("Init DB Error:", e)
 
+# تشغيل التهيئة عند إقلاع التطبيق
 init_db()
 
 def check_admin():
@@ -96,7 +93,7 @@ def index():
         return redirect("/dashboard")
     return redirect("/login")
 
-@app.route("/login", methods=["GET", "POST"])
+@app.route("/login", methods=["GET", "POST"], endpoint="login")
 def login():
     if request.method == "POST":
         username = request.form.get("username")
@@ -108,90 +105,102 @@ def login():
             flash("اسم المستخدم أو كلمة المرور غير صحيحة", "danger")
     return render_template("login.html")
 
-@app.route("/logout")
+@app.route("/logout", endpoint="logout")
 def logout():
     session.clear()
     return redirect("/login")
 
-# المسار الرئيسي للوحة التحكم
+# --- Dashboard & Keys Routes ---
 @app.route("/dashboard", endpoint="dashboard")
+@app.route("/keys", endpoint="keys")
+@app.route("/keys_page", endpoint="keys_page")
 def dashboard():
     if not check_admin():
         return redirect("/login")
     
     keys_list = []
-    try:
-        conn = connect_db()
-        if conn:
+    conn, err = connect_db()
+    
+    if err:
+        flash(f"خطأ في الاتصال بقاعدة البيانات: {err}", "danger")
+    elif conn:
+        try:
             with conn.cursor() as cur:
                 cur.execute("SELECT id, key_code, status, created_at FROM `keys` ORDER BY id DESC")
                 rows = cur.fetchall()
                 for r in rows:
                     keys_list.append(KeyItem(r[0], r[1], r[2], r[3]))
             conn.close()
-        else:
-            flash("لم يتم الاتصال بقاعدة البيانات. تحقق من رابط DATABASE_URL", "warning")
-    except Exception as e:
-        flash(f"خطأ في الاستعلام: {e}", "danger")
-        
-    return render_template("dashboard.html", keys=keys_list)
+        except Exception as e:
+            flash(f"خطأ أثناء جلب المفاتيح: {e}", "danger")
 
-# توجيه الأسماء المستعارة لوحة التحكم لتجنب BuildError
-@app.route("/keys", endpoint="keys")
-@app.route("/keys_page", endpoint="keys_page")
-def dashboard_aliases():
-    return dashboard()
+    # يحاول العرض في dashboard.html، وإن لم ينجح يعرض keys.html
+    try:
+        return render_template("dashboard.html", keys=keys_list)
+    except Exception:
+        return render_template("keys.html", keys=keys_list)
 
+# --- Generate Routes ---
 @app.route("/generate", methods=["GET", "POST"], endpoint="generate")
+@app.route("/generate_key", methods=["GET", "POST"], endpoint="generate_key")
+@app.route("/generate_page", methods=["GET", "POST"], endpoint="generate_page")
 def generate():
     if not check_admin():
         return redirect("/login")
+        
     if request.method == "POST":
         new_key = "TWVX-" + ''.join(random.choices(string.ascii_uppercase + string.digits, k=10))
-        try:
-            conn = connect_db()
-            if conn:
+        conn, err = connect_db()
+        
+        if err:
+            flash(f"تعذر إنتاج المفتاح بسبب خطأ الاتصال: {err}", "danger")
+        elif conn:
+            try:
                 with conn.cursor() as cur:
                     cur.execute("INSERT INTO `keys` (`key_code`, `status`) VALUES (%s, %s)", (new_key, 'active'))
                 conn.close()
-                flash(f"تم إنشاء المفتاح: {new_key}", "success")
-            else:
-                flash("خطأ: تعذر الاتصال بقاعدة البيانات", "danger")
-        except Exception as e:
-            flash(f"خطأ عند إنشاء المفتاح: {e}", "danger")
+                flash(f"تم إنشاء المفتاح بنجاح: {new_key}", "success")
+            except Exception as e:
+                flash(f"خطأ عند حفظ المفتاح: {e}", "danger")
         return redirect("/dashboard")
+        
     return render_template("generate.html")
 
-@app.route("/generate_key", endpoint="generate_key")
-@app.route("/generate_page", endpoint="generate_page")
-def generate_aliases():
-    return generate()
-
+# --- Delete Routes ---
 @app.route("/delete/<int:key_id>", endpoint="delete_key")
 @app.route("/delete/<int:key_id>", endpoint="delete")
 def delete_key(key_id=None):
     if not check_admin():
         return redirect("/login")
-    try:
-        conn = connect_db()
-        if conn:
+        
+    conn, err = connect_db()
+    if err:
+        flash(f"خطأ في الاتصال: {err}", "danger")
+    elif conn:
+        try:
             with conn.cursor() as cur:
                 cur.execute("DELETE FROM `keys` WHERE id = %s", (key_id,))
             conn.close()
             flash("تم حذف المفتاح 🗑️", "warning")
-    except Exception as e:
-        flash(f"خطأ أثناء الحذف: {e}", "danger")
+        except Exception as e:
+            flash(f"خطأ أثناء الحذف: {e}", "danger")
+            
     return redirect("/dashboard")
 
-@app.route("/search")
+# --- Search Route ---
+@app.route("/search", endpoint="search")
 def search():
     if not check_admin():
         return redirect("/login")
+        
     q = request.args.get("q", "").strip()
     keys_list = []
-    try:
-        conn = connect_db()
-        if conn:
+    conn, err = connect_db()
+    
+    if err:
+        flash(f"خطأ في الاتصال: {err}", "danger")
+    elif conn:
+        try:
             with conn.cursor() as cur:
                 if q == "":
                     cur.execute("SELECT id, key_code, status, created_at FROM `keys` ORDER BY id DESC")
@@ -201,22 +210,23 @@ def search():
                 for r in rows:
                     keys_list.append(KeyItem(r[0], r[1], r[2], r[3]))
             conn.close()
-    except Exception as e:
-        flash(f"خطأ أثناء البحث: {e}", "danger")
+        except Exception as e:
+            flash(f"خطأ أثناء البحث: {e}", "danger")
+            
     return render_template("dashboard.html", keys=keys_list)
 
 # ================= VERIFY API (C++) =================
-@app.route("/verify", methods=["GET", "POST"])
+@app.route("/verify", methods=["GET", "POST"], endpoint="verify")
 def verify():
     key = request.args.get("key") or request.form.get("key", "")
     if not key:
         return "INVALID", 200, {'Content-Type': 'text/plain'}
     
+    conn, err = connect_db()
+    if err or not conn:
+        return "ERROR", 200, {'Content-Type': 'text/plain'}
+        
     try:
-        conn = connect_db()
-        if not conn:
-            return "ERROR", 500, {'Content-Type': 'text/plain'}
-            
         with conn.cursor() as cur:
             cur.execute("SELECT `status` FROM `keys` WHERE `key_code` = %s", (key,))
             result = cur.fetchone()
@@ -227,8 +237,9 @@ def verify():
         else:
             return "INVALID", 200, {'Content-Type': 'text/plain'}
     except Exception:
-        return "ERROR", 500, {'Content-Type': 'text/plain'}
+        return "ERROR", 200, {'Content-Type': 'text/plain'}
 
+# ================= RUN =================
 application = app
 
 if __name__ == "__main__":
