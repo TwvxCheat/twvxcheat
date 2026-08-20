@@ -19,7 +19,6 @@ def connect_db():
     if not db_url:
         raise ValueError("DATABASE_URL is not set in environment variables")
     
-    # إجبار الاتصال الآمن SSL المطلوب على خوادم Render
     if "sslmode" not in db_url:
         if "?" in db_url:
             db_url += "&sslmode=require"
@@ -33,8 +32,6 @@ def init_db():
     try:
         conn = connect_db()
         cur = conn.cursor()
-        
-        # إنشاء الجدول إذا لم يكن موجوداً
         cur.execute("""
             CREATE TABLE IF NOT EXISTS keys (
                 id SERIAL PRIMARY KEY,
@@ -43,8 +40,6 @@ def init_db():
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
         """)
-        
-        # التحقق وتحديث اسم العمود من key إلى key_code تلقائياً إن وجد
         cur.execute("""
             DO $$ 
             BEGIN 
@@ -57,14 +52,12 @@ def init_db():
                 END IF;
             END $$;
         """)
-        
         conn.commit()
         cur.close()
         conn.close()
     except Exception as e:
         print("DB Init Error:", e)
 
-# تشغيل التهيئة عند بدء السيرفر
 try:
     init_db()
 except Exception as e:
@@ -73,7 +66,7 @@ except Exception as e:
 def check_admin():
     return session.get("logged_in")
 
-# ================= ROUTES =================
+# ================= ROUTES & ALIASES =================
 
 @app.route("/")
 def index():
@@ -98,7 +91,10 @@ def logout():
     session.clear()
     return redirect("/login")
 
-@app.route("/dashboard")
+# قبول dashboard و keys كاسم للمسار
+@app.route("/dashboard", endpoint="dashboard")
+@app.route("/dashboard", endpoint="keys")
+@app.route("/keys")
 def dashboard():
     if not check_admin():
         return redirect("/login")
@@ -114,7 +110,9 @@ def dashboard():
         flash(f"خطأ في الاتصال بقاعدة البيانات: {e}", "danger")
     return render_template("dashboard.html", keys=keys)
 
-@app.route("/generate", methods=["GET", "POST"])
+# قبول generate و generate_key كاسم للمسار
+@app.route("/generate", methods=["GET", "POST"], endpoint="generate")
+@app.route("/generate", methods=["GET", "POST"], endpoint="generate_key")
 def generate():
     if not check_admin():
         return redirect("/login")
@@ -133,14 +131,18 @@ def generate():
         return redirect("/dashboard")
     return render_template("generate.html")
 
-@app.route("/delete/<int:key_id>")
-def delete_key(key_id):
+# قبول delete و delete_key والمعاملات id أو key_id
+@app.route("/delete/<int:key_id>", endpoint="delete_key")
+@app.route("/delete/<int:key_id>", endpoint="delete")
+@app.route("/delete_key/<int:key_id>")
+def delete_key(key_id=None, id=None):
     if not check_admin():
         return redirect("/login")
+    target_id = key_id if key_id is not None else id
     try:
         conn = connect_db()
         cur = conn.cursor()
-        cur.execute("DELETE FROM keys WHERE id = %s", (key_id,))
+        cur.execute("DELETE FROM keys WHERE id = %s", (target_id,))
         conn.commit()
         cur.close()
         conn.close()
