@@ -3,7 +3,7 @@ import os
 import random
 import string
 import pymysql
-import pymysql.cursors
+import ssl
 from urllib.parse import urlparse, unquote
 
 app = Flask(__name__)
@@ -14,6 +14,22 @@ app.secret_key = os.environ.get("SECRET_KEY", "supersecretkey")
 # ================= ADMIN =================
 ADMIN_USER = "TwvxCheat"
 ADMIN_PASS = "Twvx1"
+
+# ================= KEY CLASS FOR TEMPLATE COMPATIBILITY =================
+class KeyItem:
+    """كائن مرن يتوافق مع أي طريقة كتابة داخل dashboard.html"""
+    def __init__(self, id, key_code, status='active', created_at=''):
+        self.id = id
+        self.key_code = key_code
+        self.key = key_code
+        self.status = status
+        self.created_at = created_at
+
+    def __getitem__(self, idx):
+        items = [self.id, self.key_code, self.status, self.created_at]
+        if isinstance(idx, int):
+            return items[idx] if idx < len(items) else ""
+        return getattr(self, str(idx), "")
 
 # ================= DB CONNECTION =================
 def connect_db():
@@ -27,9 +43,10 @@ def connect_db():
         password = unquote(url.password) if url.password else ""
         username = unquote(url.username) if url.username else ""
 
-        ssl_config = None
-        if "ssl" in db_url.lower() or "required" in db_url.lower():
-            ssl_config = {"ssl": {}}
+        # إعداد SSL آمن لـ Aiven MySQL
+        ctx = ssl.create_default_context()
+        ctx.check_hostname = False
+        ctx.verify_mode = ssl.CERT_NONE
 
         return pymysql.connect(
             host=url.hostname,
@@ -38,11 +55,11 @@ def connect_db():
             password=password,
             database=db_name,
             autocommit=True,
-            cursorclass=pymysql.cursors.DictCursor,  # يدعم قراءة البيانات باسم الحقل
-            ssl=ssl_config
+            ssl=ctx,
+            connect_timeout=10
         )
     except Exception as e:
-        print("Connection Error:", e)
+        print("DB Connection Error:", e)
         return None
 
 # ================= INIT DB =================
@@ -66,7 +83,6 @@ def init_db():
         print("DB Init Error:", e)
         return False
 
-# تشغيل التهيئة عند الإقلاع
 init_db()
 
 def check_admin():
@@ -97,35 +113,36 @@ def logout():
     session.clear()
     return redirect("/login")
 
+# المسار الرئيسي للوحة التحكم
 @app.route("/dashboard", endpoint="dashboard")
-@app.route("/dashboard", endpoint="keys")
-@app.route("/dashboard", endpoint="keys_page")
-@app.route("/keys")
 def dashboard():
     if not check_admin():
         return redirect("/login")
     
-    # التأكد من إنشاء الجدول في حال لم يُنشأ سابقاً
-    init_db()
-    
-    keys = []
+    keys_list = []
     try:
         conn = connect_db()
         if conn:
             with conn.cursor() as cur:
-                cur.execute("SELECT * FROM `keys` ORDER BY id DESC")
-                keys = cur.fetchall()
+                cur.execute("SELECT id, key_code, status, created_at FROM `keys` ORDER BY id DESC")
+                rows = cur.fetchall()
+                for r in rows:
+                    keys_list.append(KeyItem(r[0], r[1], r[2], r[3]))
             conn.close()
         else:
-            flash("تنبيه: لم يتم الاتصال بقاعدة البيانات. تحقّق من DATABASE_URL", "warning")
+            flash("لم يتم الاتصال بقاعدة البيانات. تحقق من رابط DATABASE_URL", "warning")
     except Exception as e:
-        flash(f"خطأ في قاعدة البيانات: {e}", "danger")
+        flash(f"خطأ في الاستعلام: {e}", "danger")
         
-    return render_template("dashboard.html", keys=keys)
+    return render_template("dashboard.html", keys=keys_list)
+
+# توجيه الأسماء المستعارة لوحة التحكم لتجنب BuildError
+@app.route("/keys", endpoint="keys")
+@app.route("/keys_page", endpoint="keys_page")
+def dashboard_aliases():
+    return dashboard()
 
 @app.route("/generate", methods=["GET", "POST"], endpoint="generate")
-@app.route("/generate", methods=["GET", "POST"], endpoint="generate_key")
-@app.route("/generate", methods=["GET", "POST"], endpoint="generate_page")
 def generate():
     if not check_admin():
         return redirect("/login")
@@ -139,11 +156,16 @@ def generate():
                 conn.close()
                 flash(f"تم إنشاء المفتاح: {new_key}", "success")
             else:
-                flash("خطأ: لم يتم ضبط DATABASE_URL", "danger")
+                flash("خطأ: تعذر الاتصال بقاعدة البيانات", "danger")
         except Exception as e:
             flash(f"خطأ عند إنشاء المفتاح: {e}", "danger")
         return redirect("/dashboard")
     return render_template("generate.html")
+
+@app.route("/generate_key", endpoint="generate_key")
+@app.route("/generate_page", endpoint="generate_page")
+def generate_aliases():
+    return generate()
 
 @app.route("/delete/<int:key_id>", endpoint="delete_key")
 @app.route("/delete/<int:key_id>", endpoint="delete")
@@ -166,20 +188,22 @@ def search():
     if not check_admin():
         return redirect("/login")
     q = request.args.get("q", "").strip()
-    keys = []
+    keys_list = []
     try:
         conn = connect_db()
         if conn:
             with conn.cursor() as cur:
                 if q == "":
-                    cur.execute("SELECT * FROM `keys` ORDER BY id DESC")
+                    cur.execute("SELECT id, key_code, status, created_at FROM `keys` ORDER BY id DESC")
                 else:
-                    cur.execute("SELECT * FROM `keys` WHERE `key_code` LIKE %s", ('%' + q + '%',))
-                keys = cur.fetchall()
+                    cur.execute("SELECT id, key_code, status, created_at FROM `keys` WHERE `key_code` LIKE %s", ('%' + q + '%',))
+                rows = cur.fetchall()
+                for r in rows:
+                    keys_list.append(KeyItem(r[0], r[1], r[2], r[3]))
             conn.close()
     except Exception as e:
         flash(f"خطأ أثناء البحث: {e}", "danger")
-    return render_template("dashboard.html", keys=keys)
+    return render_template("dashboard.html", keys=keys_list)
 
 # ================= VERIFY API (C++) =================
 @app.route("/verify", methods=["GET", "POST"])
@@ -198,14 +222,13 @@ def verify():
             result = cur.fetchone()
         conn.close()
         
-        if result and (result['status'] == 'active' or result['status'] == 'valid'):
+        if result and (result[0] == 'active' or result[0] == 'valid'):
             return "VALID", 200, {'Content-Type': 'text/plain'}
         else:
             return "INVALID", 200, {'Content-Type': 'text/plain'}
     except Exception:
         return "ERROR", 500, {'Content-Type': 'text/plain'}
 
-# ================= RUN =================
 application = app
 
 if __name__ == "__main__":
