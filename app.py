@@ -21,9 +21,9 @@ class KeyModel:
     def __init__(self, id, key_code, key_type='basic', status='active', used_by='-', created_at=''):
         self.id = id
         self.key_code = key_code
-        self.key = key_code         # لدعم {{ key.key }}
-        self.key_type = key_type or 'basic' # لدعم key.key_type
-        self.status = status or 'active'    # active / used
+        self.key = key_code
+        self.key_type = key_type or 'basic'
+        self.status = status or 'active'
         self.used_by = used_by or '-'
         self.created_at = created_at
 
@@ -69,7 +69,6 @@ def init_db():
     if conn:
         try:
             with conn.cursor() as cur:
-                # 1. إنشاء الجدول إذا لم يكن موجوداً
                 cur.execute("""
                     CREATE TABLE IF NOT EXISTS `keys` (
                         `id` INT AUTO_INCREMENT PRIMARY KEY,
@@ -78,8 +77,6 @@ def init_db():
                         `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                     );
                 """)
-                
-                # 2. إضافة الأعمدة الناقصة تلقائياً إلى الجدول الحالي
                 columns_to_add = [
                     ('key_type', "VARCHAR(50) DEFAULT 'basic'"),
                     ('used_by', "VARCHAR(255) DEFAULT '-'")
@@ -88,27 +85,15 @@ def init_db():
                     try:
                         cur.execute(f"ALTER TABLE `keys` ADD COLUMN `{col_name}` {col_type};")
                     except Exception:
-                        pass  # العمود موجود بالفعل
+                        pass
             conn.close()
         except Exception as e:
             print("Init DB Error:", e)
 
-# تشغيل تحديث الجدول عند إقلاع التطبيق
 init_db()
 
 def check_admin():
     return session.get("logged_in")
-
-# ================= ERROR HANDLER =================
-@app.errorhandler(500)
-def handle_500_error(e):
-    error_details = traceback.format_exc()
-    return f"""
-    <div style="font-family: monospace; padding: 20px; background: #1e1e1e; color: #ff5555; dir: ltr;">
-        <h2>⚠️ App Error (500) Details:</h2>
-        <pre>{error_details}</pre>
-    </div>
-    """, 500
 
 # ================= ROUTES =================
 
@@ -135,66 +120,18 @@ def logout():
     session.clear()
     return redirect("/login")
 
-@app.route("/dashboard", endpoint="dashboard")
-@app.route("/keys", endpoint="keys")
-@app.route("/keys_page", endpoint="keys_page")
+@app.route("/dashboard", methods=["GET", "POST"], endpoint="dashboard")
+@app.route("/keys", methods=["GET", "POST"], endpoint="keys")
 def dashboard():
     if not check_admin():
         return redirect("/login")
     
-    keys_list = []
-    conn, err = connect_db()
-    
-    if err:
-        flash(f"تنبيه الاتصال: {err}", "danger")
-    elif conn:
-        try:
-            with conn.cursor() as cur:
-                # محاولة جلب البيانات مع الحقول الناقصة
-                try:
-                    cur.execute("SELECT id, key_code, key_type, status, used_by, created_at FROM `keys` ORDER BY id DESC")
-                    rows = cur.fetchall()
-                    for r in rows:
-                        keys_list.append(KeyModel(r[0], r[1], r[2], r[3], r[4], r[5]))
-                except Exception:
-                    # في حال لم تتحدث القاعدة بعد، استعلام احتياطي متوافق
-                    cur.execute("SELECT id, key_code, status, created_at FROM `keys` ORDER BY id DESC")
-                    rows = cur.fetchall()
-                    for r in rows:
-                        keys_list.append(KeyModel(r[0], r[1], 'basic', r[2], '-', r[3]))
-            conn.close()
-        except Exception as e:
-            flash(f"خطأ أثناء جلب البيانات: {e}", "danger")
-
-    total_keys = len(keys_list)
-    used_keys = sum(1 for k in keys_list if str(k.status).lower() not in ['active', 'valid'])
-    available_keys = total_keys - used_keys
-    recent_keys = keys_list[:10]
-
-    return render_template(
-        "dashboard.html",
-        keys=keys_list,
-        recent_keys=recent_keys,
-        total_keys=total_keys,
-        used_keys=used_keys,
-        available_keys=available_keys
-    )
-
-@app.route("/generate", methods=["GET", "POST"], endpoint="generate")
-@app.route("/generate_key", methods=["GET", "POST"], endpoint="generate_key")
-@app.route("/generate_page", methods=["GET", "POST"], endpoint="generate_page")
-def generate():
-    if not check_admin():
-        return redirect("/login")
-        
+    # معالجة توليد مفتاح جديد عند ضغط الزر
     if request.method == "POST":
         key_type = request.form.get("key_type", "basic")
         new_key = "TWVX-" + ''.join(random.choices(string.ascii_uppercase + string.digits, k=10))
         conn, err = connect_db()
-        
-        if err:
-            flash(f"تعذر إنشاء المفتاح: {err}", "danger")
-        elif conn:
+        if conn:
             try:
                 with conn.cursor() as cur:
                     try:
@@ -204,57 +141,27 @@ def generate():
                 conn.close()
                 flash(f"تم إنشاء المفتاح بنجاح: {new_key}", "success")
             except Exception as e:
-                flash(f"خطأ الحفظ: {e}", "danger")
+                flash(f"خطأ أثناء إنشاء المفتاح: {e}", "danger")
         return redirect("/dashboard")
-        
-    return render_template("generate.html")
 
-@app.route("/delete/<int:key_id>", endpoint="delete_key")
-@app.route("/delete/<int:key_id>", endpoint="delete")
-def delete_key(key_id=None):
-    if not check_admin():
-        return redirect("/login")
-        
-    conn, err = connect_db()
-    if conn:
-        try:
-            with conn.cursor() as cur:
-                cur.execute("DELETE FROM `keys` WHERE id = %s", (key_id,))
-            conn.close()
-            flash("تم حذف المفتاح 🗑️", "warning")
-        except Exception as e:
-            flash(f"خطأ أثناء الحذف: {e}", "danger")
-            
-    return redirect("/dashboard")
-
-@app.route("/search", endpoint="search")
-def search():
-    if not check_admin():
-        return redirect("/login")
-        
-    q = request.args.get("q", "").strip()
     keys_list = []
     conn, err = connect_db()
-    
     if conn:
         try:
             with conn.cursor() as cur:
                 try:
-                    if q == "":
-                        cur.execute("SELECT id, key_code, key_type, status, used_by, created_at FROM `keys` ORDER BY id DESC")
-                    else:
-                        cur.execute("SELECT id, key_code, key_type, status, used_by, created_at FROM `keys` WHERE `key_code` LIKE %s", ('%' + q + '%',))
+                    cur.execute("SELECT id, key_code, key_type, status, used_by, created_at FROM `keys` ORDER BY id DESC")
                     rows = cur.fetchall()
                     for r in rows:
                         keys_list.append(KeyModel(r[0], r[1], r[2], r[3], r[4], r[5]))
                 except Exception:
-                    cur.execute("SELECT id, key_code, status, created_at FROM `keys` WHERE `key_code` LIKE %s", ('%' + q + '%',))
+                    cur.execute("SELECT id, key_code, status, created_at FROM `keys` ORDER BY id DESC")
                     rows = cur.fetchall()
                     for r in rows:
                         keys_list.append(KeyModel(r[0], r[1], 'basic', r[2], '-', r[3]))
             conn.close()
         except Exception as e:
-            flash(f"خطأ أثناء البحث: {e}", "danger")
+            flash(f"خطأ جلب البيانات: {e}", "danger")
 
     total_keys = len(keys_list)
     used_keys = sum(1 for k in keys_list if str(k.status).lower() not in ['active', 'valid'])
@@ -269,27 +176,35 @@ def search():
         available_keys=available_keys
     )
 
-# ================= VERIFY API (C++) =================
+@app.route("/delete/<int:key_id>", endpoint="delete_key")
+def delete_key(key_id=None):
+    if not check_admin():
+        return redirect("/login")
+    conn, err = connect_db()
+    if conn:
+        try:
+            with conn.cursor() as cur:
+                cur.execute("DELETE FROM `keys` WHERE id = %s", (key_id,))
+            conn.close()
+            flash("تم حذف المفتاح 🗑️", "warning")
+        except Exception as e:
+            flash(f"خطأ الحذف: {e}", "danger")
+    return redirect("/dashboard")
+
 @app.route("/verify", methods=["GET", "POST"], endpoint="verify")
 def verify():
     key = request.args.get("key") or request.form.get("key", "")
     if not key:
         return "INVALID", 200, {'Content-Type': 'text/plain'}
-    
     conn, err = connect_db()
     if err or not conn:
         return "ERROR", 200, {'Content-Type': 'text/plain'}
-        
     try:
         with conn.cursor() as cur:
             cur.execute("SELECT `status` FROM `keys` WHERE `key_code` = %s AND `status` = 'active'", (key,))
             result = cur.fetchone()
         conn.close()
-        
-        if result:
-            return "VALID", 200, {'Content-Type': 'text/plain'}
-        else:
-            return "INVALID", 200, {'Content-Type': 'text/plain'}
+        return "VALID" if result else "INVALID", 200, {'Content-Type': 'text/plain'}
     except Exception:
         return "ERROR", 200, {'Content-Type': 'text/plain'}
 
