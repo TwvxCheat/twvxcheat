@@ -13,32 +13,62 @@ app.secret_key = os.environ.get("SECRET_KEY", "supersecretkey")
 ADMIN_USER = "TwvxCheat"
 ADMIN_PASS = "Twvx1"
 
-# ================= DB =================
+# ================= DB CONNECTION =================
 def connect_db():
-    return psycopg2.connect(os.environ.get("DATABASE_URL"))
+    db_url = os.environ.get("DATABASE_URL")
+    if not db_url:
+        raise ValueError("DATABASE_URL is not set in environment variables")
+    
+    # إجبار الاتصال الآمن SSL المطلوب على خوادم Render
+    if "sslmode" not in db_url:
+        if "?" in db_url:
+            db_url += "&sslmode=require"
+        else:
+            db_url += "?sslmode=require"
+            
+    return psycopg2.connect(db_url)
 
+# ================= INIT DB & MIGRATION =================
 def init_db():
     try:
         conn = connect_db()
         cur = conn.cursor()
+        
+        # إنشاء الجدول إذا لم يكن موجوداً
         cur.execute("""
             CREATE TABLE IF NOT EXISTS keys (
                 id SERIAL PRIMARY KEY,
-                key_code TEXT UNIQUE NOT NULL,
+                key_code TEXT UNIQUE,
                 status TEXT DEFAULT 'active',
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
         """)
+        
+        # التحقق وتحديث اسم العمود من key إلى key_code تلقائياً إن وجد
+        cur.execute("""
+            DO $$ 
+            BEGIN 
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='keys' AND column_name='key_code') THEN
+                    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='keys' AND column_name='key') THEN
+                        ALTER TABLE keys RENAME COLUMN key TO key_code;
+                    ELSE
+                        ALTER TABLE keys ADD COLUMN key_code TEXT UNIQUE;
+                    END IF;
+                END IF;
+            END $$;
+        """)
+        
         conn.commit()
         cur.close()
         conn.close()
     except Exception as e:
         print("DB Init Error:", e)
 
+# تشغيل التهيئة عند بدء السيرفر
 try:
     init_db()
-except Exception:
-    pass
+except Exception as e:
+    print("Failed to run init_db:", e)
 
 def check_admin():
     return session.get("logged_in")
@@ -72,6 +102,7 @@ def logout():
 def dashboard():
     if not check_admin():
         return redirect("/login")
+    keys = []
     try:
         conn = connect_db()
         cur = conn.cursor()
@@ -79,8 +110,8 @@ def dashboard():
         keys = cur.fetchall()
         cur.close()
         conn.close()
-    except Exception:
-        keys = []
+    except Exception as e:
+        flash(f"خطأ في الاتصال بقاعدة البيانات: {e}", "danger")
     return render_template("dashboard.html", keys=keys)
 
 @app.route("/generate", methods=["GET", "POST"])
@@ -98,7 +129,7 @@ def generate():
             conn.close()
             flash(f"تم إنشاء المفتاح: {new_key}", "success")
         except Exception as e:
-            flash(f"خطأ: {e}", "danger")
+            flash(f"خطأ عند إنشاء المفتاح: {e}", "danger")
         return redirect("/dashboard")
     return render_template("generate.html")
 
@@ -122,19 +153,20 @@ def delete_key(key_id):
 def search():
     if not check_admin():
         return redirect("/login")
-    q = request.args.get("q", "")
+    q = request.args.get("q", "").strip()
+    keys = []
     try:
         conn = connect_db()
         cur = conn.cursor()
-        if q.strip() == "":
+        if q == "":
             cur.execute("SELECT * FROM keys ORDER BY id DESC")
         else:
             cur.execute("SELECT * FROM keys WHERE key_code LIKE %s", ('%' + q + '%',))
         keys = cur.fetchall()
         cur.close()
         conn.close()
-    except Exception:
-        keys = []
+    except Exception as e:
+        flash(f"خطأ أثناء البحث: {e}", "danger")
     return render_template("dashboard.html", keys=keys)
 
 # ================= VERIFY API (C++) =================
