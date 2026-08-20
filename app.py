@@ -2,7 +2,8 @@ from flask import Flask, render_template, request, redirect, session, url_for, f
 import os
 import random
 import string
-import psycopg2
+import pymysql
+from urllib.parse import urlparse
 
 app = Flask(__name__)
 
@@ -13,19 +14,28 @@ app.secret_key = os.environ.get("SECRET_KEY", "supersecretkey")
 ADMIN_USER = "TwvxCheat"
 ADMIN_PASS = "Twvx1"
 
-# ================= DB CONNECTION =================
+# ================= DB CONNECTION (MySQL) =================
 def connect_db():
     db_url = os.environ.get("DATABASE_URL")
     if not db_url:
         return None
     
-    if "sslmode" not in db_url:
-        if "?" in db_url:
-            db_url += "&sslmode=require"
-        else:
-            db_url += "?sslmode=require"
-            
-    return psycopg2.connect(db_url)
+    try:
+        url = urlparse(db_url)
+        db_name = url.path.lstrip('/').split('?')[0]
+        
+        return pymysql.connect(
+            host=url.hostname,
+            port=url.port or 3306,
+            user=url.username,
+            password=url.password,
+            database=db_name,
+            autocommit=True,
+            ssl={'ssl': {}} if 'ssl' in db_url.lower() or 'required' in db_url.lower() else None
+        )
+    except Exception as e:
+        print("Connection Error:", e)
+        return None
 
 # ================= INIT DB =================
 def init_db():
@@ -33,29 +43,15 @@ def init_db():
         conn = connect_db()
         if not conn:
             return
-        cur = conn.cursor()
-        cur.execute("""
-            CREATE TABLE IF NOT EXISTS keys (
-                id SERIAL PRIMARY KEY,
-                key_code TEXT UNIQUE,
-                status TEXT DEFAULT 'active',
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            );
-        """)
-        cur.execute("""
-            DO $$ 
-            BEGIN 
-                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='keys' AND column_name='key_code') THEN
-                    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='keys' AND column_name='key') THEN
-                        ALTER TABLE keys RENAME COLUMN key TO key_code;
-                    ELSE
-                        ALTER TABLE keys ADD COLUMN key_code TEXT UNIQUE;
-                    END IF;
-                END IF;
-            END $$;
-        """)
-        conn.commit()
-        cur.close()
+        with conn.cursor() as cur:
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS `keys` (
+                    `id` INT AUTO_INCREMENT PRIMARY KEY,
+                    `key_code` VARCHAR(255) UNIQUE NOT NULL,
+                    `status` VARCHAR(50) DEFAULT 'active',
+                    `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+            """)
         conn.close()
     except Exception as e:
         print("DB Init Error:", e)
@@ -93,7 +89,6 @@ def logout():
     session.clear()
     return redirect("/login")
 
-# حل مشكلة keys_page و keys و dashboard
 @app.route("/dashboard", endpoint="dashboard")
 @app.route("/dashboard", endpoint="keys")
 @app.route("/dashboard", endpoint="keys_page")
@@ -105,10 +100,9 @@ def dashboard():
     try:
         conn = connect_db()
         if conn:
-            cur = conn.cursor()
-            cur.execute("SELECT * FROM keys ORDER BY id DESC")
-            keys = cur.fetchall()
-            cur.close()
+            with conn.cursor() as cur:
+                cur.execute("SELECT * FROM `keys` ORDER BY id DESC")
+                keys = cur.fetchall()
             conn.close()
         else:
             flash("تنبيه: يجب إضافة متغير DATABASE_URL في Render", "warning")
@@ -127,10 +121,8 @@ def generate():
         try:
             conn = connect_db()
             if conn:
-                cur = conn.cursor()
-                cur.execute("INSERT INTO keys (key_code, status) VALUES (%s, %s)", (new_key, 'active'))
-                conn.commit()
-                cur.close()
+                with conn.cursor() as cur:
+                    cur.execute("INSERT INTO `keys` (`key_code`, `status`) VALUES (%s, %s)", (new_key, 'active'))
                 conn.close()
                 flash(f"تم إنشاء المفتاح: {new_key}", "success")
             else:
@@ -148,10 +140,8 @@ def delete_key(key_id=None):
     try:
         conn = connect_db()
         if conn:
-            cur = conn.cursor()
-            cur.execute("DELETE FROM keys WHERE id = %s", (key_id,))
-            conn.commit()
-            cur.close()
+            with conn.cursor() as cur:
+                cur.execute("DELETE FROM `keys` WHERE id = %s", (key_id,))
             conn.close()
             flash("تم حذف المفتاح 🗑️", "warning")
     except Exception as e:
@@ -167,13 +157,12 @@ def search():
     try:
         conn = connect_db()
         if conn:
-            cur = conn.cursor()
-            if q == "":
-                cur.execute("SELECT * FROM keys ORDER BY id DESC")
-            else:
-                cur.execute("SELECT * FROM keys WHERE key_code LIKE %s", ('%' + q + '%',))
-            keys = cur.fetchall()
-            cur.close()
+            with conn.cursor() as cur:
+                if q == "":
+                    cur.execute("SELECT * FROM `keys` ORDER BY id DESC")
+                else:
+                    cur.execute("SELECT * FROM `keys` WHERE `key_code` LIKE %s", ('%' + q + '%',))
+                keys = cur.fetchall()
             conn.close()
     except Exception as e:
         flash(f"خطأ أثناء البحث: {e}", "danger")
@@ -191,10 +180,9 @@ def verify():
         if not conn:
             return "ERROR", 500, {'Content-Type': 'text/plain'}
             
-        cur = conn.cursor()
-        cur.execute("SELECT status FROM keys WHERE key_code = %s", (key,))
-        result = cur.fetchone()
-        cur.close()
+        with conn.cursor() as cur:
+            cur.execute("SELECT `status` FROM `keys` WHERE `key_code` = %s", (key,))
+            result = cur.fetchone()
         conn.close()
         
         if result and (result[0] == 'active' or result[0] == 'valid'):
