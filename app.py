@@ -3,7 +3,8 @@ import os
 import random
 import string
 import pymysql
-from urllib.parse import urlparse
+import pymysql.cursors
+from urllib.parse import urlparse, unquote
 
 app = Flask(__name__)
 
@@ -14,7 +15,7 @@ app.secret_key = os.environ.get("SECRET_KEY", "supersecretkey")
 ADMIN_USER = "TwvxCheat"
 ADMIN_PASS = "Twvx1"
 
-# ================= DB CONNECTION (MySQL) =================
+# ================= DB CONNECTION =================
 def connect_db():
     db_url = os.environ.get("DATABASE_URL")
     if not db_url:
@@ -23,15 +24,22 @@ def connect_db():
     try:
         url = urlparse(db_url)
         db_name = url.path.lstrip('/').split('?')[0]
-        
+        password = unquote(url.password) if url.password else ""
+        username = unquote(url.username) if url.username else ""
+
+        ssl_config = None
+        if "ssl" in db_url.lower() or "required" in db_url.lower():
+            ssl_config = {"ssl": {}}
+
         return pymysql.connect(
             host=url.hostname,
             port=url.port or 3306,
-            user=url.username,
-            password=url.password,
+            user=username,
+            password=password,
             database=db_name,
             autocommit=True,
-            ssl={'ssl': {}} if 'ssl' in db_url.lower() or 'required' in db_url.lower() else None
+            cursorclass=pymysql.cursors.DictCursor,  # يدعم قراءة البيانات باسم الحقل
+            ssl=ssl_config
         )
     except Exception as e:
         print("Connection Error:", e)
@@ -42,7 +50,7 @@ def init_db():
     try:
         conn = connect_db()
         if not conn:
-            return
+            return False
         with conn.cursor() as cur:
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS `keys` (
@@ -53,13 +61,13 @@ def init_db():
                 );
             """)
         conn.close()
+        return True
     except Exception as e:
         print("DB Init Error:", e)
+        return False
 
-try:
-    init_db()
-except Exception as e:
-    print("Failed to run init_db:", e)
+# تشغيل التهيئة عند الإقلاع
+init_db()
 
 def check_admin():
     return session.get("logged_in")
@@ -96,6 +104,10 @@ def logout():
 def dashboard():
     if not check_admin():
         return redirect("/login")
+    
+    # التأكد من إنشاء الجدول في حال لم يُنشأ سابقاً
+    init_db()
+    
     keys = []
     try:
         conn = connect_db()
@@ -105,9 +117,10 @@ def dashboard():
                 keys = cur.fetchall()
             conn.close()
         else:
-            flash("تنبيه: يجب إضافة متغير DATABASE_URL في Render", "warning")
+            flash("تنبيه: لم يتم الاتصال بقاعدة البيانات. تحقّق من DATABASE_URL", "warning")
     except Exception as e:
         flash(f"خطأ في قاعدة البيانات: {e}", "danger")
+        
     return render_template("dashboard.html", keys=keys)
 
 @app.route("/generate", methods=["GET", "POST"], endpoint="generate")
@@ -185,7 +198,7 @@ def verify():
             result = cur.fetchone()
         conn.close()
         
-        if result and (result[0] == 'active' or result[0] == 'valid'):
+        if result and (result['status'] == 'active' or result['status'] == 'valid'):
             return "VALID", 200, {'Content-Type': 'text/plain'}
         else:
             return "INVALID", 200, {'Content-Type': 'text/plain'}
