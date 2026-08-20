@@ -17,7 +17,7 @@ ADMIN_PASS = "Twvx1"
 def connect_db():
     db_url = os.environ.get("DATABASE_URL")
     if not db_url:
-        raise ValueError("DATABASE_URL is not set in environment variables")
+        return None
     
     if "sslmode" not in db_url:
         if "?" in db_url:
@@ -27,10 +27,12 @@ def connect_db():
             
     return psycopg2.connect(db_url)
 
-# ================= INIT DB & MIGRATION =================
+# ================= INIT DB =================
 def init_db():
     try:
         conn = connect_db()
+        if not conn:
+            return
         cur = conn.cursor()
         cur.execute("""
             CREATE TABLE IF NOT EXISTS keys (
@@ -66,7 +68,7 @@ except Exception as e:
 def check_admin():
     return session.get("logged_in")
 
-# ================= ROUTES & ALIASES =================
+# ================= ROUTES =================
 
 @app.route("/")
 def index():
@@ -91,9 +93,10 @@ def logout():
     session.clear()
     return redirect("/login")
 
-# قبول dashboard و keys كاسم للمسار
+# حل مشكلة keys_page و keys و dashboard
 @app.route("/dashboard", endpoint="dashboard")
 @app.route("/dashboard", endpoint="keys")
+@app.route("/dashboard", endpoint="keys_page")
 @app.route("/keys")
 def dashboard():
     if not check_admin():
@@ -101,18 +104,21 @@ def dashboard():
     keys = []
     try:
         conn = connect_db()
-        cur = conn.cursor()
-        cur.execute("SELECT * FROM keys ORDER BY id DESC")
-        keys = cur.fetchall()
-        cur.close()
-        conn.close()
+        if conn:
+            cur = conn.cursor()
+            cur.execute("SELECT * FROM keys ORDER BY id DESC")
+            keys = cur.fetchall()
+            cur.close()
+            conn.close()
+        else:
+            flash("تنبيه: يجب إضافة متغير DATABASE_URL في Render", "warning")
     except Exception as e:
-        flash(f"خطأ في الاتصال بقاعدة البيانات: {e}", "danger")
+        flash(f"خطأ في قاعدة البيانات: {e}", "danger")
     return render_template("dashboard.html", keys=keys)
 
-# قبول generate و generate_key كاسم للمسار
 @app.route("/generate", methods=["GET", "POST"], endpoint="generate")
 @app.route("/generate", methods=["GET", "POST"], endpoint="generate_key")
+@app.route("/generate", methods=["GET", "POST"], endpoint="generate_page")
 def generate():
     if not check_admin():
         return redirect("/login")
@@ -120,33 +126,34 @@ def generate():
         new_key = "TWVX-" + ''.join(random.choices(string.ascii_uppercase + string.digits, k=10))
         try:
             conn = connect_db()
-            cur = conn.cursor()
-            cur.execute("INSERT INTO keys (key_code, status) VALUES (%s, %s)", (new_key, 'active'))
-            conn.commit()
-            cur.close()
-            conn.close()
-            flash(f"تم إنشاء المفتاح: {new_key}", "success")
+            if conn:
+                cur = conn.cursor()
+                cur.execute("INSERT INTO keys (key_code, status) VALUES (%s, %s)", (new_key, 'active'))
+                conn.commit()
+                cur.close()
+                conn.close()
+                flash(f"تم إنشاء المفتاح: {new_key}", "success")
+            else:
+                flash("خطأ: لم يتم ضبط DATABASE_URL", "danger")
         except Exception as e:
             flash(f"خطأ عند إنشاء المفتاح: {e}", "danger")
         return redirect("/dashboard")
     return render_template("generate.html")
 
-# قبول delete و delete_key والمعاملات id أو key_id
 @app.route("/delete/<int:key_id>", endpoint="delete_key")
 @app.route("/delete/<int:key_id>", endpoint="delete")
-@app.route("/delete_key/<int:key_id>")
-def delete_key(key_id=None, id=None):
+def delete_key(key_id=None):
     if not check_admin():
         return redirect("/login")
-    target_id = key_id if key_id is not None else id
     try:
         conn = connect_db()
-        cur = conn.cursor()
-        cur.execute("DELETE FROM keys WHERE id = %s", (target_id,))
-        conn.commit()
-        cur.close()
-        conn.close()
-        flash("تم حذف المفتاح 🗑️", "warning")
+        if conn:
+            cur = conn.cursor()
+            cur.execute("DELETE FROM keys WHERE id = %s", (key_id,))
+            conn.commit()
+            cur.close()
+            conn.close()
+            flash("تم حذف المفتاح 🗑️", "warning")
     except Exception as e:
         flash(f"خطأ أثناء الحذف: {e}", "danger")
     return redirect("/dashboard")
@@ -159,14 +166,15 @@ def search():
     keys = []
     try:
         conn = connect_db()
-        cur = conn.cursor()
-        if q == "":
-            cur.execute("SELECT * FROM keys ORDER BY id DESC")
-        else:
-            cur.execute("SELECT * FROM keys WHERE key_code LIKE %s", ('%' + q + '%',))
-        keys = cur.fetchall()
-        cur.close()
-        conn.close()
+        if conn:
+            cur = conn.cursor()
+            if q == "":
+                cur.execute("SELECT * FROM keys ORDER BY id DESC")
+            else:
+                cur.execute("SELECT * FROM keys WHERE key_code LIKE %s", ('%' + q + '%',))
+            keys = cur.fetchall()
+            cur.close()
+            conn.close()
     except Exception as e:
         flash(f"خطأ أثناء البحث: {e}", "danger")
     return render_template("dashboard.html", keys=keys)
@@ -180,6 +188,9 @@ def verify():
     
     try:
         conn = connect_db()
+        if not conn:
+            return "ERROR", 500, {'Content-Type': 'text/plain'}
+            
         cur = conn.cursor()
         cur.execute("SELECT status FROM keys WHERE key_code = %s", (key,))
         result = cur.fetchone()
