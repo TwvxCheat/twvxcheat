@@ -8,7 +8,7 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.rtl.min.css" rel="stylesheet">
     <!-- FontAwesome Icons -->
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
-    <!-- Google FontTajawal -->
+    <!-- Google Font Tajawal -->
     <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700;900&display=swap" rel="stylesheet">
     
     <style>
@@ -20,6 +20,7 @@
             --accent-green: #22c55e;
             --accent-purple: #a855f7;
             --accent-red: #ef4444;
+            --accent-yellow: #f59e0b;
         }
 
         body {
@@ -110,7 +111,7 @@
         }
         .copy-btn:hover { background: var(--accent-cyan); color: #000 !important; }
 
-        /* Custom Scrollbar */
+        /* Scrollbar customization */
         ::-webkit-scrollbar { width: 6px; height: 6px; }
         ::-webkit-scrollbar-track { background: #030712; }
         ::-webkit-scrollbar-thumb { background: #374151; border-radius: 4px; }
@@ -146,7 +147,7 @@
           {% endif %}
         {% endwith %}
 
-        <!-- بطاقات الإحصائيات المبتكرة -->
+        <!-- بطاقات الإحصائيات -->
         <div class="row g-3 mb-4">
             <div class="col-6 col-md-3">
                 <div class="glass-card p-3 text-center stat-card stat-total">
@@ -168,14 +169,14 @@
             </div>
             <div class="col-6 col-md-3">
                 <div class="glass-card p-3 text-center stat-card stat-expired">
-                    <span class="text-muted-custom small d-block mb-1">المنتهية / المحظورة</span>
-                    <h3 class="fw-bold mb-0 text-danger">{{ expired_keys + banned_keys }}</h3>
+                    <span class="text-muted-custom small d-block mb-1">المنتهية / المجمدة</span>
+                    <h3 class="fw-bold mb-0 text-warning">{{ expired_keys + frozen_keys + banned_keys }}</h3>
                 </div>
             </div>
         </div>
 
         <div class="row g-3">
-            <!-- القائمة الجانبية: النماذج -->
+            <!-- القائمة الجانبية -->
             <div class="col-lg-4">
                 
                 <!-- توليد مفتاح -->
@@ -221,7 +222,7 @@
                 </div>
             </div>
 
-            <!-- الجداول والمحتوى الرئيسي -->
+            <!-- المحتوى الرئيسي -->
             <div class="col-lg-8">
                 
                 <!-- الأدمنية -->
@@ -241,12 +242,11 @@
                     </div>
                 </div>
 
-                <!-- جدول المفاتيح مع محرك البحث المباشر -->
-                <div class="glass-card p-4">
+                <!-- جدول المفاتيح -->
+                <div class="glass-card p-4 mb-4">
                     <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-3">
                         <h5 class="fw-bold m-0"><i class="fa-solid fa-list text-primary me-1"></i> قائمة المفاتيح</h5>
-                        <!-- شريط البحث المباشر -->
-                        <div class="position-relative style="min-width: 240px;">
+                        <div class="position-relative" style="min-width: 240px;">
                             <input type="text" id="searchInput" onkeyup="filterKeys()" class="form-control ps-4 form-control-sm" placeholder="بحث بالكي أو HWID...">
                         </div>
                     </div>
@@ -294,13 +294,15 @@
                                     <td><span class="badge bg-primary opacity-75">{{ key.created_by or 'TwvxCheat' }}</span></td>
                                     <td>
                                         {% if key.hwid %}
-                                            <small class="text-truncate d-inline-block text-cyan" style="max-width: 100px;" title="{{ key.hwid }}">{{ key.hwid }}</small>
+                                            <small class="text-truncate d-inline-block text-info" style="max-width: 100px;" title="{{ key.hwid }}">{{ key.hwid }}</small>
                                         {% else %}
                                             <span class="text-muted-custom small">غير مستخدم</span>
                                         {% endif %}
                                     </td>
                                     <td>
-                                        {% if key.status == 'active' %}
+                                        {% if key.is_frozen or key.status == 'frozen' %}
+                                            <span class="badge bg-warning text-dark"><i class="fa-solid fa-snowflake me-1"></i>مجمد</span>
+                                        {% elif key.status == 'active' %}
                                             <span class="badge bg-success">نشط</span>
                                         {% elif key.status == 'expired' %}
                                             <span class="badge bg-danger">منتهي</span>
@@ -310,9 +312,17 @@
                                     </td>
                                     <td>
                                         <div class="d-flex gap-1">
-                                            <form action="/reset_hwid/{{ key.id }}" method="POST" class="d-inline">
-                                                <button type="submit" class="btn btn-warning btn-sm p-1 px-2 rounded-2" title="إعادة ضبط HWID"><i class="fa-solid fa-rotate-right"></i></button>
+                                            <!-- زر التجميد / فك التجميد -->
+                                            <form action="/freeze_key/{{ key.id }}" method="POST" class="d-inline">
+                                                <button type="submit" class="btn btn-{{ 'info' if key.is_frozen else 'warning' }} btn-sm p-1 px-2 rounded-2" title="{{ 'فك التجميد' if key.is_frozen else 'تجميد المفتاح' }}">
+                                                    <i class="fa-solid {{ 'fa-play' if key.is_frozen else 'fa-snowflake' }}"></i>
+                                                </button>
                                             </form>
+                                            <!-- إعادة ضبط HWID -->
+                                            <form action="/reset_hwid/{{ key.id }}" method="POST" class="d-inline">
+                                                <button type="submit" class="btn btn-secondary btn-sm p-1 px-2 rounded-2" title="إعادة ضبط HWID"><i class="fa-solid fa-rotate-right"></i></button>
+                                            </form>
+                                            <!-- حذف المفتاح -->
                                             <form action="/delete_key/{{ key.id }}" method="POST" class="d-inline">
                                                 <button type="submit" class="btn btn-danger btn-sm p-1 px-2 rounded-2" title="حذف المفتاح"><i class="fa-solid fa-trash"></i></button>
                                             </form>
@@ -328,13 +338,54 @@
                         </table>
                     </div>
                 </div>
+
+                <!-- 📜 جدول سجل التحركات والنظام (Logs) -->
+                <div class="glass-card p-4">
+                    <h5 class="fw-bold mb-3 d-flex align-items-center gap-2">
+                        <i class="fa-solid fa-clock-rotate-left text-warning"></i> سجل التحركات والنظام (Logs)
+                    </h5>
+                    <div class="table-responsive" style="max-height: 320px; overflow-y: auto;">
+                        <table class="table table-dark table-hover align-middle mb-0 text-nowrap">
+                            <thead>
+                                <tr class="text-muted-custom small">
+                                    <th style="width: 20%;">التاريخ والوقت</th>
+                                    <th style="width: 25%;">نوع الحدث</th>
+                                    <th style="width: 55%;">التفاصيل</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for log in logs %}
+                                <tr>
+                                    <td><small class="text-muted-custom">{{ log.created_at }}</small></td>
+                                    <td>
+                                        {% if 'استخدام' in log.action %}
+                                            <span class="badge bg-success opacity-75">{{ log.action }}</span>
+                                        {% elif 'تجميد' in log.action %}
+                                            <span class="badge bg-warning text-dark">{{ log.action }}</span>
+                                        {% elif 'حذف' in log.action %}
+                                            <span class="badge bg-danger opacity-75">{{ log.action }}</span>
+                                        {% else %}
+                                            <span class="badge bg-info text-dark">{{ log.action }}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-light small">{{ log.details }}</td>
+                                </tr>
+                                {% else %}
+                                <tr>
+                                    <td colspan="3" class="text-center text-muted-custom py-3">لا توجد سجلات حالياً</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
             </div>
         </div>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        // دالة تصفية المفاتيح من شريط البحث المباشر
         function filterKeys() {
             let input = document.getElementById("searchInput").value.toUpperCase();
             let table = document.getElementById("keysTable");
@@ -350,7 +401,6 @@
             }
         }
 
-        // دالة نسخ الكي
         function copyKey(text, btn) {
             navigator.clipboard.writeText(text).then(() => {
                 const icon = btn.querySelector('i');
