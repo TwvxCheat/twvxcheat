@@ -76,7 +76,6 @@ def init_db():
                     );
                 """)
                 
-                # إزالة الحسابات القديمة وتعيين الحساب الجديد إجبارياً
                 cur.execute("DELETE FROM admins;")
                 cur.execute("INSERT INTO admins (username, password) VALUES (%s, %s);", ("TwvxCheat", "Twvx1"))
             conn.close()
@@ -101,6 +100,14 @@ def login():
     if request.method == "POST":
         username = request.form.get("username")
         password = request.form.get("password")
+        
+        # 1. تحقق مباشر ومؤكد لمستخدِم الأدمن الرئيسي
+        if username == "TwvxCheat" and password == "Twvx1":
+            session["logged_in"] = True
+            session["username"] = username
+            return redirect(url_for("dashboard"))
+            
+        # 2. تحقق من قاعدة البيانات
         conn, _ = connect_db()
         if conn:
             with conn.cursor() as cur:
@@ -111,6 +118,7 @@ def login():
                 session["logged_in"] = True
                 session["username"] = username
                 return redirect(url_for("dashboard"))
+                
         flash("اسم المستخدم أو كلمة المرور غير صحيحة", "danger")
     return render_template("login.html")
 
