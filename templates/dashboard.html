@@ -21,18 +21,32 @@
   <!-- Quick Key Generation Section -->
   <div class="card bg-dark text-white border-secondary mb-4">
     <div class="card-body">
-      <h5 class="card-title mb-3">➕ توليد مفتاح جديد (Generate Key Code)</h5>
+      <h5 class="card-title mb-3">🔑 إنشاء مفتاح وتحديد الصلاحية بالأيام</h5>
       <form method="POST" action="/dashboard" class="row g-2 align-items-center">
+        
         <div class="col-auto">
+          <label class="form-label small text-muted mb-0">نوع المفتاح:</label>
           <select name="key_type" class="form-select bg-secondary text-white border-0">
             <option value="basic">عادي (Basic)</option>
             <option value="premium">مميز (Premium)</option>
             <option value="vip">VIP</option>
           </select>
         </div>
+
         <div class="col-auto">
+          <label class="form-label small text-muted mb-0">المدة (بالأيام):</label>
+          <select name="duration_days" class="form-select bg-secondary text-white border-0">
+            <option value="1">1 يوم (تجريبي)</option>
+            <option value="7">7 أيام (أسبوع)</option>
+            <option value="30" selected>30 يوم (شهر)</option>
+            <option value="90">90 يوم (3 أشهر)</option>
+            <option value="365">365 يوم (سنة)</option>
+          </select>
+        </div>
+
+        <div class="col-auto align-self-end">
           <button type="submit" class="btn btn-success fw-bold">
-            إنشاء Key Code
+            ➕ إنشاء Key Code
           </button>
         </div>
       </form>
@@ -50,13 +64,13 @@
     <div class="col-md-3 col-6">
       <div class="stat-card text-center p-3 bg-dark border border-secondary rounded">
         <div class="stat-number h3 text-warning">{{ used_keys }}</div>
-        <div class="stat-label text-muted">مفعلة</div>
+        <div class="stat-label text-muted">مفاتيح مفعلة</div>
       </div>
     </div>
     <div class="col-md-3 col-6">
       <div class="stat-card text-center p-3 bg-dark border border-secondary rounded">
         <div class="stat-number h3 text-success">{{ available_keys }}</div>
-        <div class="stat-label text-muted">متاحة</div>
+        <div class="stat-label text-muted">متاحة للتفعيل</div>
       </div>
     </div>
     <div class="col-md-3 col-6">
@@ -76,17 +90,18 @@
   <!-- Keys Table -->
   <div class="card-custom bg-dark border border-secondary rounded p-3 text-white">
     <div class="card-header fw-bold mb-3 border-bottom border-secondary pb-2">
-      <i class="fa fa-history"></i> آخر المفاتيح
+      <i class="fa fa-history"></i> قائمة المفاتيح وحالتها
     </div>
     <div class="card-body p-0">
       <div class="table-responsive">
-        <table class="table table-dark table-hover mb-0 text-center">
+        <table class="table table-dark table-hover mb-0 text-center align-middle">
           <thead>
             <tr>
               <th>المفتاح</th>
               <th>النوع</th>
-              <th>الاستخدام</th>
-              <th>مستخدم</th>
+              <th>المدة</th>
+              <th>الحالة</th>
+              <th>تاريخ الانتهاء</th>
               <th>الإجراءات</th>
             </tr>
           </thead>
@@ -103,21 +118,30 @@
                   <span class="badge bg-secondary">عادي</span>
                 {% endif %}
               </td>
+              <td><span class="badge bg-info">{{ key.duration_days }} يوم</span></td>
               <td>
-                {% if key.status == 'active' %}
-                  <span class="badge bg-success">نشط / متاح</span>
+                {% if key.status == 'expired' %}
+                  <span class="badge bg-secondary">منتهي</span>
+                {% elif key.activated_at %}
+                  <span class="badge bg-success">نشط (مفعل)</span>
                 {% else %}
-                  <span class="badge bg-danger">مستعمل</span>
+                  <span class="badge bg-primary">غير مفعل بعد</span>
                 {% endif %}
               </td>
-              <td>{{ key.used_by }}</td>
+              <td class="small text-muted">
+                {% if key.expires_at %}
+                  {{ key.expires_at.strftime('%Y-%m-%d %H:%M') }}
+                {% else %}
+                  لم يبدأ بعد
+                {% endif %}
+              </td>
               <td>
                 <a href="/delete/{{ key.id }}" class="btn btn-sm btn-outline-danger" onclick="return confirm('هل أنت تأكد من الحذف؟')">حذف</a>
               </td>
             </tr>
             {% else %}
             <tr>
-              <td colspan="5" class="text-muted py-3">لا توجد مفاتيح مستخدمة أو مضافة. استخدم الخيار أعلى الصفحة لتوليد مفتاح.</td>
+              <td colspan="6" class="text-muted py-3">لا توجد مفاتيح. استخدم القائمة العلوية لإنشاء مفتاح.</td>
             </tr>
             {% endfor %}
           </tbody>
