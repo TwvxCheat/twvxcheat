@@ -80,7 +80,6 @@ def init_db():
     if conn:
         try:
             with conn.cursor() as cur:
-                # جدول المفاتيح
                 cur.execute("""
                     CREATE TABLE IF NOT EXISTS `keys` (
                         `id` INT AUTO_INCREMENT PRIMARY KEY,
@@ -102,7 +101,6 @@ def init_db():
                     except Exception:
                         pass
 
-                # جدول الأدمنية الإضافيين
                 cur.execute("""
                     CREATE TABLE IF NOT EXISTS `admins` (
                         `id` INT AUTO_INCREMENT PRIMARY KEY,
@@ -142,16 +140,17 @@ def index():
 @app.route("/login", methods=["GET", "POST"], endpoint="login")
 def login():
     if request.method == "POST":
-        username = request.form.get("username")
-        password = request.form.get("password")
+        username = request.form.get("username", "").strip()
+        password = request.form.get("password", "").strip()
 
-        # 1. التحقق من الأدمن الرئيسي
+        # الأدمن الرئيسي
         if username == ADMIN_USER and password == ADMIN_PASS:
             session["logged_in"] = True
             session["admin_user"] = username
+            flash("تم تسجيل الدخول بنجاح 👋", "success")
             return redirect("/dashboard")
 
-        # 2. التحقق من قائمة الأدمنية في قاعدة البيانات
+        # الأدمنية المضافين
         conn, err = connect_db()
         if conn:
             try:
@@ -162,6 +161,7 @@ def login():
                         session["logged_in"] = True
                         session["admin_user"] = username
                         conn.close()
+                        flash("تم تسجيل الدخول بنجاح 👋", "success")
                         return redirect("/dashboard")
                 conn.close()
             except Exception:
@@ -173,6 +173,7 @@ def login():
 @app.route("/logout", endpoint="logout")
 def logout():
     session.clear()
+    flash("تم تسجيل الخروج بنجاح 👋", "info")
     return redirect("/login")
 
 @app.route("/dashboard", methods=["GET", "POST"], endpoint="dashboard")
@@ -182,7 +183,6 @@ def dashboard():
     if not check_admin():
         return redirect("/login")
     
-    # إنشاء مفتاح جديد
     if request.method == "POST":
         key_type = request.form.get("key_type", "basic")
         try:
@@ -205,20 +205,17 @@ def dashboard():
                 flash(f"خطأ أثناء إنشاء المفتاح: {e}", "danger")
         return redirect("/dashboard")
 
-    # جلب المفاتيح والأدمنية
     keys_list = []
     admins_list = []
     conn, err = connect_db()
     if conn:
         try:
             with conn.cursor() as cur:
-                # جلب المفاتيح
                 cur.execute("SELECT id, key_code, key_type, status, used_by, created_at, duration_days, activated_at, expires_at FROM `keys` ORDER BY id DESC")
                 rows = cur.fetchall()
                 for r in rows:
                     keys_list.append(KeyModel(r[0], r[1], r[2], r[3], r[4], r[5], r[6], r[7], r[8]))
                 
-                # جلب الأدمنية
                 cur.execute("SELECT id, username, password, created_at FROM `admins` ORDER BY id DESC")
                 adm_rows = cur.fetchall()
                 for a in adm_rows:
@@ -242,7 +239,38 @@ def dashboard():
         current_admin=session.get("admin_user", "Admin")
     )
 
-# إضافة أدمن جديد
+# ================= PAUSE & UNPAUSE =================
+@app.route("/pause/<int:key_id>", endpoint="pause_key")
+def pause_key(key_id):
+    if not check_admin():
+        return redirect("/login")
+    conn, err = connect_db()
+    if conn:
+        try:
+            with conn.cursor() as cur:
+                cur.execute("UPDATE `keys` SET status = 'paused' WHERE id = %s", (key_id,))
+            conn.close()
+            flash("تم تجميد المفتاح بنجاح ⏸️", "warning")
+        except Exception as e:
+            flash(f"خطأ التجميد: {e}", "danger")
+    return redirect("/dashboard")
+
+@app.route("/unpause/<int:key_id>", endpoint="unpause_key")
+def unpause_key(key_id):
+    if not check_admin():
+        return redirect("/login")
+    conn, err = connect_db()
+    if conn:
+        try:
+            with conn.cursor() as cur:
+                cur.execute("UPDATE `keys` SET status = 'active' WHERE id = %s", (key_id,))
+            conn.close()
+            flash("تم إلغاء تجميد المفتاح وبدء التشغيل ▶️", "success")
+        except Exception as e:
+            flash(f"خطأ إلغاء التجميد: {e}", "danger")
+    return redirect("/dashboard")
+
+# ================= ADMIN ACTIONS =================
 @app.route("/add_admin", methods=["POST"], endpoint="add_admin")
 def add_admin():
     if not check_admin():
@@ -262,11 +290,10 @@ def add_admin():
                 cur.execute("INSERT INTO `admins` (`username`, `password`) VALUES (%s, %s)", (new_user, new_pass))
             conn.close()
             flash(f"تمت إضافة الأدمن ({new_user}) بنجاح! 👤", "success")
-        except Exception as e:
+        except Exception:
             flash("اسم المستخدم موجود بالفعل أو حدث خطأ", "danger")
     return redirect("/dashboard")
 
-# حذف أدمن
 @app.route("/delete_admin/<int:admin_id>", endpoint="delete_admin")
 def delete_admin(admin_id=None):
     if not check_admin():
@@ -281,12 +308,6 @@ def delete_admin(admin_id=None):
             flash("تم حذف الأدمن بنجاح 🗑️", "warning")
         except Exception as e:
             flash(f"خطأ الحذف: {e}", "danger")
-    return redirect("/dashboard")
-
-@app.route("/generate", methods=["GET", "POST"], endpoint="generate")
-@app.route("/generate_key", methods=["GET", "POST"], endpoint="generate_key")
-@app.route("/generate_page", methods=["GET", "POST"], endpoint="generate_page")
-def generate_page():
     return redirect("/dashboard")
 
 @app.route("/delete/<int:key_id>", endpoint="delete_key")
@@ -326,6 +347,10 @@ def verify():
                 return "INVALID", 200, {'Content-Type': 'text/plain'}
 
             key_id, status, duration_days, activated_at, expires_at = row
+
+            if status == 'paused':
+                conn.close()
+                return "PAUSED", 200, {'Content-Type': 'text/plain'}
 
             if status == 'expired':
                 conn.close()
