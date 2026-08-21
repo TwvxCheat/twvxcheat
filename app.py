@@ -13,11 +13,11 @@ app = Flask(__name__)
 # ================= SECRET =================
 app.secret_key = os.environ.get("SECRET_KEY", "supersecretkey_twvx_2026")
 
-# ================= ADMIN =================
+# ================= MAIN ADMIN =================
 ADMIN_USER = "TwvxCheat"
 ADMIN_PASS = "Twvx1"
 
-# ================= KEY CLASS =================
+# ================= KEY & ADMIN MODELS =================
 class KeyModel:
     def __init__(self, id, key_code, key_type='basic', status='active', used_by='-', created_at='', duration_days=30, activated_at=None, expires_at=None):
         self.id = id
@@ -36,6 +36,13 @@ class KeyModel:
             arr = [self.id, self.key_code, self.key_type, self.status, self.used_by, self.created_at, self.duration_days, self.activated_at, self.expires_at]
             return arr[item] if item < len(arr) else ""
         return getattr(self, str(item), "")
+
+class AdminModel:
+    def __init__(self, id, username, password, created_at=''):
+        self.id = id
+        self.username = username
+        self.password = password
+        self.created_at = created_at
 
 # ================= DB CONNECTION =================
 def connect_db():
@@ -67,12 +74,13 @@ def connect_db():
     except Exception as e:
         return None, str(e)
 
-# ================= INIT & MIGRATE DB =================
+# ================= INIT DB =================
 def init_db():
     conn, err = connect_db()
     if conn:
         try:
             with conn.cursor() as cur:
+                # جدول المفاتيح
                 cur.execute("""
                     CREATE TABLE IF NOT EXISTS `keys` (
                         `id` INT AUTO_INCREMENT PRIMARY KEY,
@@ -93,6 +101,16 @@ def init_db():
                         cur.execute(f"ALTER TABLE `keys` ADD COLUMN `{col_name}` {col_type};")
                     except Exception:
                         pass
+
+                # جدول الأدمنية الإضافيين
+                cur.execute("""
+                    CREATE TABLE IF NOT EXISTS `admins` (
+                        `id` INT AUTO_INCREMENT PRIMARY KEY,
+                        `username` VARCHAR(100) UNIQUE NOT NULL,
+                        `password` VARCHAR(255) NOT NULL,
+                        `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    );
+                """)
             conn.close()
         except Exception as e:
             print("Init DB Error:", e)
@@ -126,11 +144,30 @@ def login():
     if request.method == "POST":
         username = request.form.get("username")
         password = request.form.get("password")
+
+        # 1. التحقق من الأدمن الرئيسي
         if username == ADMIN_USER and password == ADMIN_PASS:
             session["logged_in"] = True
+            session["admin_user"] = username
             return redirect("/dashboard")
-        else:
-            flash("اسم المستخدم أو كلمة المرور غير صحيحة", "danger")
+
+        # 2. التحقق من قائمة الأدمنية في قاعدة البيانات
+        conn, err = connect_db()
+        if conn:
+            try:
+                with conn.cursor() as cur:
+                    cur.execute("SELECT id FROM `admins` WHERE username = %s AND password = %s", (username, password))
+                    res = cur.fetchone()
+                    if res:
+                        session["logged_in"] = True
+                        session["admin_user"] = username
+                        conn.close()
+                        return redirect("/dashboard")
+                conn.close()
+            except Exception:
+                pass
+
+        flash("اسم المستخدم أو كلمة المرور غير صحيحة", "danger")
     return render_template("login.html")
 
 @app.route("/logout", endpoint="logout")
@@ -145,7 +182,7 @@ def dashboard():
     if not check_admin():
         return redirect("/login")
     
-    # إنشاء مفتاح جديد مع تحديد عدد الأيام
+    # إنشاء مفتاح جديد
     if request.method == "POST":
         key_type = request.form.get("key_type", "basic")
         try:
@@ -168,15 +205,24 @@ def dashboard():
                 flash(f"خطأ أثناء إنشاء المفتاح: {e}", "danger")
         return redirect("/dashboard")
 
+    # جلب المفاتيح والأدمنية
     keys_list = []
+    admins_list = []
     conn, err = connect_db()
     if conn:
         try:
             with conn.cursor() as cur:
+                # جلب المفاتيح
                 cur.execute("SELECT id, key_code, key_type, status, used_by, created_at, duration_days, activated_at, expires_at FROM `keys` ORDER BY id DESC")
                 rows = cur.fetchall()
                 for r in rows:
                     keys_list.append(KeyModel(r[0], r[1], r[2], r[3], r[4], r[5], r[6], r[7], r[8]))
+                
+                # جلب الأدمنية
+                cur.execute("SELECT id, username, password, created_at FROM `admins` ORDER BY id DESC")
+                adm_rows = cur.fetchall()
+                for a in adm_rows:
+                    admins_list.append(AdminModel(a[0], a[1], a[2], a[3]))
             conn.close()
         except Exception as e:
             flash(f"خطأ جلب البيانات: {e}", "danger")
@@ -189,10 +235,53 @@ def dashboard():
         "dashboard.html",
         keys=keys_list,
         recent_keys=keys_list,
+        admins=admins_list,
         total_keys=total_keys,
         used_keys=used_keys,
-        available_keys=available_keys
+        available_keys=available_keys,
+        current_admin=session.get("admin_user", "Admin")
     )
+
+# إضافة أدمن جديد
+@app.route("/add_admin", methods=["POST"], endpoint="add_admin")
+def add_admin():
+    if not check_admin():
+        return redirect("/login")
+    
+    new_user = request.form.get("new_username", "").strip()
+    new_pass = request.form.get("new_password", "").strip()
+
+    if not new_user or not new_pass:
+        flash("يرجى ملء جميع الحقول", "warning")
+        return redirect("/dashboard")
+
+    conn, err = connect_db()
+    if conn:
+        try:
+            with conn.cursor() as cur:
+                cur.execute("INSERT INTO `admins` (`username`, `password`) VALUES (%s, %s)", (new_user, new_pass))
+            conn.close()
+            flash(f"تمت إضافة الأدمن ({new_user}) بنجاح! 👤", "success")
+        except Exception as e:
+            flash("اسم المستخدم موجود بالفعل أو حدث خطأ", "danger")
+    return redirect("/dashboard")
+
+# حذف أدمن
+@app.route("/delete_admin/<int:admin_id>", endpoint="delete_admin")
+def delete_admin(admin_id=None):
+    if not check_admin():
+        return redirect("/login")
+    
+    conn, err = connect_db()
+    if conn:
+        try:
+            with conn.cursor() as cur:
+                cur.execute("DELETE FROM `admins` WHERE id = %s", (admin_id,))
+            conn.close()
+            flash("تم حذف الأدمن بنجاح 🗑️", "warning")
+        except Exception as e:
+            flash(f"خطأ الحذف: {e}", "danger")
+    return redirect("/dashboard")
 
 @app.route("/generate", methods=["GET", "POST"], endpoint="generate")
 @app.route("/generate_key", methods=["GET", "POST"], endpoint="generate_key")
@@ -244,7 +333,6 @@ def verify():
 
             now = datetime.datetime.now()
 
-            # التفعيل لأول مرة: بدء حساب الأيام
             if activated_at is None:
                 duration = duration_days if duration_days else 30
                 exp_date = now + datetime.timedelta(days=duration)
@@ -255,7 +343,6 @@ def verify():
                 conn.close()
                 return "VALID", 200, {'Content-Type': 'text/plain'}
 
-            # مفتاح تم تفعيله سابقاً - التحقق من الصلاحية
             if expires_at and now > expires_at:
                 cur.execute("UPDATE `keys` SET `status` = 'expired' WHERE id = %s", (key_id,))
                 conn.close()
