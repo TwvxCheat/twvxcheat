@@ -367,7 +367,7 @@ def delete_key(key_id):
     flash("تم حذف المفتاح", "success")
     return redirect(url_for("keys_page"))
 
-# --- API التفعيل والمصادقة المطور مع نموذج فحص للمتصفح ---
+# --- API التفعيل والمصادقة المطور مع نموذج فحص بمفتاح فقط ---
 @app.route("/api/verify", methods=["GET", "POST"])
 def api_verify():
     if request.method == "POST":
@@ -380,8 +380,8 @@ def api_verify():
 
     is_browser = "text/html" in request.headers.get("Accept", "") and not request.headers.get("X-Loader")
 
-    # واجهة إدخال البيانات مباشرة عند فتح الرابط من المتصفح بدون برامترات
-    if is_browser and (not key_code or not hwid):
+    # واجهة إدخال البيانات مباشرة عند فتح الرابط من المتصفح بدون مفتاح
+    if is_browser and not key_code:
         return """
         <!DOCTYPE html>
         <html lang="ar" dir="rtl">
@@ -446,7 +446,7 @@ def api_verify():
                 <div class="mb-4">
                     <i class="fa-solid fa-shield-halved text-info fs-1 mb-2"></i>
                     <h4 class="fw-bold">فحص حالة الاشتراك</h4>
-                    <p class="text-muted small">أدخل المفتاح ومعرف الجهاز (HWID) للتحقق</p>
+                    <p class="text-muted small">أدخل المفتاح للتحقق من الحالة والتفاصيل</p>
                 </div>
                 <form action="/api/verify" method="GET">
                     <div class="mb-3 text-start">
@@ -454,8 +454,8 @@ def api_verify():
                         <input type="text" name="key" class="form-control" placeholder="TWVX-BASIC-XXXX" required>
                     </div>
                     <div class="mb-4 text-start">
-                        <label class="form-label small text-muted">معرف الجهاز (HWID)</label>
-                        <input type="text" name="hwid" class="form-control" placeholder="HWID-12345" required>
+                        <label class="form-label small text-muted">معرف الجهاز (HWID) <span class="text-secondary">(اختياري)</span></label>
+                        <input type="text" name="hwid" class="form-control" placeholder="اتركه فارغاً للفحص السريع">
                     </div>
                     <button type="submit" class="btn btn-check-key">
                         <i class="fa-solid fa-magnifying-glass me-1"></i> فحص الآن
@@ -635,7 +635,11 @@ def api_verify():
             return html_ui, http_code
         return status_str, http_code
 
-    if not key_code or not hwid:
+    # بالنسبة للبرنامج/اللودر الخارجي، يظل الـ HWID إجبارياً للربط والمصادقة
+    if not is_browser and (not key_code or not hwid):
+        return render_api_response("INVALID:MISSING_DATA", 400)
+
+    if not key_code:
         return render_api_response("INVALID:MISSING_DATA", 400)
 
     key_data = query_db("SELECT * FROM keys WHERE key_code=%s", (key_code,), fetchone=True)
@@ -658,6 +662,18 @@ def api_verify():
 
     registered_hwids = [h for h in (key_data.get("hwid") or "").split(",") if h]
     max_devices = key_data.get("max_devices", 1)
+
+    # إذا تم الفحص عبر المتصفح بدون HWID، يتم عرض معلومات المفتاح فقط دون تسجيل جهاز
+    if is_browser and not hwid:
+        if key_data.get("activated_at"):
+            exp_date = datetime.strptime(str(key_data["expires_at"])[:19], "%Y-%m-%d %H:%M:%S")
+            days_left = max(0, (exp_date - now).days)
+        else:
+            days_left = key_data.get("duration_days", 30)
+            
+        key_type = (key_data.get("key_type") or "basic").upper()
+        response_payload = f"VALID|{key_type}|{days_left}_DAYS|{len(registered_hwids)}/{max_devices}|SIG:BROWSER_CHECK"
+        return render_api_response(response_payload, 200)
 
     if hwid not in registered_hwids:
         if len(registered_hwids) >= max_devices:
