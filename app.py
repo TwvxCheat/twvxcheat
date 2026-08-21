@@ -101,13 +101,12 @@ def login():
         username = request.form.get("username")
         password = request.form.get("password")
         
-        # 1. تحقق مباشر ومؤكد لمستخدِم الأدمن الرئيسي
+        # تحقق مباشر من بيانات الأدمن الرئيسي
         if username == "TwvxCheat" and password == "Twvx1":
             session["logged_in"] = True
             session["username"] = username
             return redirect(url_for("dashboard"))
             
-        # 2. تحقق من قاعدة البيانات
         conn, _ = connect_db()
         if conn:
             with conn.cursor() as cur:
@@ -127,9 +126,10 @@ def logout():
     session.clear()
     return redirect(url_for("login"))
 
-@app.route("/dashboard", methods=["GET"])
-@app.route("/keys", methods=["GET"])
-@app.route("/keys_page", methods=["GET"], endpoint="keys_page")
+# تم السماح بـ GET و POST لحل مشكلة 405
+@app.route("/dashboard", methods=["GET", "POST"])
+@app.route("/keys", methods=["GET", "POST"])
+@app.route("/keys_page", methods=["GET", "POST"], endpoint="keys_page")
 def dashboard():
     if not check_admin():
         return redirect(url_for("login"))
@@ -142,7 +142,6 @@ def dashboard():
             keys_list = cur.fetchall()
         conn.close()
     
-    # حساب الإحصائيات لتمريرها إلى القالب
     total_keys = len(keys_list)
     active_keys = sum(1 for k in keys_list if k.get("status") == "active")
     expired_keys = sum(1 for k in keys_list if k.get("status") == "expired")
