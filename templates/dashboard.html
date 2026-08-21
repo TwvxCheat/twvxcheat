@@ -21,26 +21,22 @@
             --bs-table-bg: #1e293b;
             --bs-table-border-color: #334155;
         }
-        .btn-success {
-            background-color: #16a34a;
-            border: none;
-        }
+        .btn-success { background-color: #16a34a; border: none; }
         .badge-active { background-color: #16a34a; }
         .badge-expired { background-color: #dc2626; }
         .badge-banned { background-color: #475569; }
-        .copy-btn {
-            padding: 2px 8px;
-            font-size: 0.8rem;
-            border-radius: 6px;
-        }
+        .copy-btn { padding: 2px 8px; font-size: 0.8rem; border-radius: 6px; }
     </style>
 </head>
 <body class="p-2 p-md-4">
 
     <div class="container-fluid max-width-xl">
-        <!-- الهيدر وتسجيل الخروج -->
+        <!-- الهيدر -->
         <div class="d-flex justify-content-between align-items-center mb-4">
-            <h3 class="fw-bold m-0"><i class="fa-solid fa-crown me-2 text-warning"></i> TwvxCheat Panel</h3>
+            <div>
+                <h3 class="fw-bold m-0"><i class="fa-solid fa-crown me-2 text-warning"></i> TwvxCheat Panel</h3>
+                <small class="text-secondary">مرحباً بك، <span class="text-info fw-bold">{{ current_user }}</span></small>
+            </div>
             <a href="/logout" class="btn btn-outline-danger btn-sm"><i class="fa-solid fa-right-from-bracket"></i> خروج</a>
         </div>
 
@@ -85,21 +81,21 @@
         </div>
 
         <div class="row g-3">
-            <!-- نموذج توليد المفاتيح -->
+            <!-- توليد مفتاح + إضافة أدمن -->
             <div class="col-lg-4">
-                <div class="card p-3">
+                <!-- نموذج التوليد -->
+                <div class="card p-3 mb-3">
                     <h5 class="fw-bold mb-3"><i class="fa-solid fa-key text-warning me-1"></i> توليد مفتاح جديد</h5>
                     <form action="/generate_key" method="POST">
-                        <div class="mb-3">
+                        <div class="mb-2">
                             <label class="form-label text-secondary small">نوع المفتاح:</label>
                             <select name="key_type" class="form-select bg-dark text-white border-secondary">
                                 <option value="basic">Basic</option>
                                 <option value="vip">VIP</option>
                                 <option value="premium">Premium</option>
-                                <option value="admin">ADMIN</option>
                             </select>
                         </div>
-                        <div class="mb-3">
+                        <div class="mb-2">
                             <label class="form-label text-secondary small">المدة (بالأيام):</label>
                             <input type="number" name="duration_days" value="30" min="1" class="form-control bg-dark text-white border-secondary" required>
                         </div>
@@ -110,10 +106,44 @@
                         <button type="submit" class="btn btn-success w-100 py-2 fw-bold">توليد المفتاح 🔑</button>
                     </form>
                 </div>
+
+                <!-- نموذج إضافة أدمن جديد -->
+                <div class="card p-3">
+                    <h5 class="fw-bold mb-3"><i class="fa-solid fa-user-plus text-info me-1"></i> إنشاء حساب أدمن لصديقك</h5>
+                    <form action="/add_admin" method="POST">
+                        <div class="mb-2">
+                            <label class="form-label text-secondary small">اسم المستخدم:</label>
+                            <input type="text" name="username" class="form-control bg-dark text-white border-secondary" placeholder="مثال: FriendName" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label text-secondary small">كلمة السر:</label>
+                            <input type="password" name="password" class="form-control bg-dark text-white border-secondary" placeholder="******" required>
+                        </div>
+                        <button type="submit" class="btn btn-primary w-100 py-2 fw-bold">إضافة أدمن جديد 👤</button>
+                    </form>
+                </div>
             </div>
 
-            <!-- جدول المفاتيح -->
+            <!-- جدول المفاتيح والأدمن -->
             <div class="col-lg-8">
+                <!-- قائمة الأدمنية المسجلين -->
+                <div class="card p-3 mb-3">
+                    <h6 class="fw-bold mb-2"><i class="fa-solid fa-users text-info me-1"></i> قائمة المشرفين (Admins)</h6>
+                    <div class="d-flex flex-wrap gap-2">
+                        {% for adm in admins %}
+                            <div class="badge bg-dark border border-secondary p-2 d-flex align-items-center gap-2">
+                                <span><i class="fa-solid fa-user-shield text-warning me-1"></i> {{ adm.username }}</span>
+                                {% if adm.username != 'TwvxCheat' %}
+                                    <form action="/delete_admin/{{ adm.id }}" method="POST" class="d-inline">
+                                        <button type="submit" class="btn btn-link text-danger p-0 border-0" title="حذف الأدمن"><i class="fa-solid fa-xmark"></i></button>
+                                    </form>
+                                {% endif %}
+                            </div>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <!-- جدول المفاتيح -->
                 <div class="card p-3">
                     <h5 class="fw-bold mb-3"><i class="fa-solid fa-list text-primary me-1"></i> قائمة المفاتيح</h5>
                     <div class="table-responsive">
