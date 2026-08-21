@@ -139,7 +139,6 @@ def init_db():
             );
         """)
 
-    # إضافة الأعمدة الجديدة إن لم تكن موجودة
     try:
         cursor.execute("ALTER TABLE keys ADD COLUMN is_frozen INT DEFAULT 0;")
     except Exception:
@@ -368,7 +367,7 @@ def delete_key(key_id):
     flash("تم حذف المفتاح", "success")
     return redirect(url_for("keys_page"))
 
-# --- API التفعيل والمصادقة المطور ---
+# --- API التفعيل والمصادقة المطور مع نموذج فحص للمتصفح ---
 @app.route("/api/verify", methods=["GET", "POST"])
 def api_verify():
     if request.method == "POST":
@@ -380,6 +379,92 @@ def api_verify():
         hwid = request.args.get("hwid", "").strip()
 
     is_browser = "text/html" in request.headers.get("Accept", "") and not request.headers.get("X-Loader")
+
+    # واجهة إدخال البيانات مباشرة عند فتح الرابط من المتصفح بدون برامترات
+    if is_browser and (not key_code or not hwid):
+        return """
+        <!DOCTYPE html>
+        <html lang="ar" dir="rtl">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>TwvxCheat - فحص الاشتراك</title>
+            <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.rtl.min.css" rel="stylesheet">
+            <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+            <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@500;700;900&display=swap" rel="stylesheet">
+            <style>
+                body {
+                    background: #070a12;
+                    color: #ffffff;
+                    font-family: 'Tajawal', sans-serif;
+                    min-height: 100vh;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    padding: 15px;
+                    margin: 0;
+                }
+                .search-card {
+                    background: rgba(15, 23, 42, 0.85);
+                    border: 1px solid rgba(255, 255, 255, 0.1);
+                    border-radius: 20px;
+                    backdrop-filter: blur(16px);
+                    box-shadow: 0 15px 35px rgba(0, 0, 0, 0.6);
+                    max-width: 420px;
+                    width: 100%;
+                    padding: 30px 24px;
+                }
+                .form-control {
+                    background: rgba(3, 7, 18, 0.8) !important;
+                    border: 1px solid #374151 !important;
+                    color: #fff !important;
+                    border-radius: 10px;
+                    padding: 12px;
+                }
+                .form-control:focus {
+                    border-color: #38bdf8 !important;
+                    box-shadow: 0 0 10px rgba(56, 189, 248, 0.3) !important;
+                }
+                .btn-check-key {
+                    background: linear-gradient(135deg, #2563eb, #38bdf8);
+                    color: #fff;
+                    font-weight: 700;
+                    border: none;
+                    border-radius: 10px;
+                    padding: 12px;
+                    width: 100%;
+                    transition: 0.3s;
+                }
+                .btn-check-key:hover {
+                    opacity: 0.9;
+                    transform: translateY(-2px);
+                }
+            </style>
+        </head>
+        <body>
+            <div class="search-card text-center">
+                <div class="mb-4">
+                    <i class="fa-solid fa-shield-halved text-info fs-1 mb-2"></i>
+                    <h4 class="fw-bold">فحص حالة الاشتراك</h4>
+                    <p class="text-muted small">أدخل المفتاح ومعرف الجهاز (HWID) للتحقق</p>
+                </div>
+                <form action="/api/verify" method="GET">
+                    <div class="mb-3 text-start">
+                        <label class="form-label small text-muted">رمز المفتاح (Key)</label>
+                        <input type="text" name="key" class="form-control" placeholder="TWVX-BASIC-XXXX" required>
+                    </div>
+                    <div class="mb-4 text-start">
+                        <label class="form-label small text-muted">معرف الجهاز (HWID)</label>
+                        <input type="text" name="hwid" class="form-control" placeholder="HWID-12345" required>
+                    </div>
+                    <button type="submit" class="btn btn-check-key">
+                        <i class="fa-solid fa-magnifying-glass me-1"></i> فحص الآن
+                    </button>
+                </form>
+            </div>
+        </body>
+        </html>
+        """, 200
 
     def render_api_response(status_str, http_code=200):
         if is_browser:
@@ -487,7 +572,6 @@ def api_verify():
                         font-size: 0.75rem;
                         color: #64748b;
                         margin-top: 20px;
-                        letter-spacing: 1px;
                     }}
                 </style>
             </head>
@@ -527,6 +611,10 @@ def api_verify():
                         </button>
                     </div>
                     '''}
+
+                    <div class="mt-3">
+                        <a href="/api/verify" class="btn btn-sm btn-outline-secondary w-100 rounded-3">فحص مفتاح آخر</a>
+                    </div>
 
                     <div class="footer-text">
                         <span>واجهة برمجة تطبيقات الأمان TWVXCHEAT</span>
