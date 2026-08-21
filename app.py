@@ -9,7 +9,7 @@ app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "twvx_cheat_secret_key_12345")
 DB_FILE = "twvx_db.db"
 
-# --- نظام الاتصال بقاعدة البيانات ---
+# --- الاتصال بقاعدة البيانات ---
 def get_db():
     if os.environ.get("DB_HOST"):
         try:
@@ -54,7 +54,7 @@ def query_db(query, args=(), fetchone=False, commit=False):
         conn.close()
         return [dict(r) for r in rows]
 
-# --- تهيئة الجداول وتحديثها تلقائياً ---
+# --- تهيئة الجداول وحفظ الحسابات ---
 def init_db():
     conn, db_type = get_db()
     cursor = conn.cursor()
@@ -76,10 +76,14 @@ def init_db():
                 expires_at DATETIME DEFAULT NULL
             );
         """)
-        try:
-            cursor.execute("ALTER TABLE keys ADD COLUMN created_by TEXT DEFAULT 'Admin';")
-        except Exception:
-            pass
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS admins (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                username TEXT UNIQUE NOT NULL,
+                password TEXT NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+        """)
         conn.commit()
     else:
         cursor.execute("""
@@ -98,10 +102,20 @@ def init_db():
                 `expires_at` DATETIME DEFAULT NULL
             );
         """)
-        try:
-            cursor.execute("ALTER TABLE `keys` ADD COLUMN `created_by` VARCHAR(100) DEFAULT 'Admin';")
-        except Exception:
-            pass
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS `admins` (
+                `id` INT AUTO_INCREMENT PRIMARY KEY,
+                `username` VARCHAR(100) UNIQUE NOT NULL,
+                `password` VARCHAR(255) NOT NULL,
+                `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+        """)
+    
+    # إضافة حساب الأدمن الرئيسي فقط إذا لم يكن موجواً
+    existing_admin = query_db("SELECT * FROM admins WHERE username=%s", ("TwvxCheat",), fetchone=True)
+    if not existing_admin:
+        query_db("INSERT INTO admins (username, password) VALUES (%s, %s)", ("TwvxCheat", "Twvx1"), commit=True)
+        
     conn.close()
 
 init_db()
@@ -120,12 +134,14 @@ def index():
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
-        username = request.form.get("username")
-        password = request.form.get("password")
+        username = request.form.get("username", "").strip()
+        password = request.form.get("password", "").strip()
         
-        if username == "TwvxCheat" and password == "Twvx1":
+        # التحقق من قاعدة البيانات مباشرة
+        admin = query_db("SELECT * FROM admins WHERE username=%s AND password=%s", (username, password), fetchone=True)
+        if admin:
             session["logged_in"] = True
-            session["username"] = username
+            session["username"] = admin["username"]
             return redirect(url_for("dashboard"))
             
         flash("اسم المستخدم أو كلمة المرور غير صحيحة", "danger")
@@ -144,6 +160,7 @@ def dashboard():
         return redirect(url_for("login"))
     
     keys_list = query_db("SELECT * FROM keys ORDER BY id DESC") or []
+    admins_list = query_db("SELECT id, username, created_at FROM admins ORDER BY id DESC") or []
     
     total_keys = len(keys_list)
     active_keys = sum(1 for k in keys_list if k.get("status") == "active")
@@ -154,12 +171,47 @@ def dashboard():
     return render_template(
         "dashboard.html", 
         keys=keys_list,
+        admins=admins_list,
+        current_user=session.get("username"),
         total_keys=total_keys,
         active_keys=active_keys,
         expired_keys=expired_keys,
         banned_keys=banned_keys,
         used_keys=used_keys
     )
+
+@app.route("/add_admin", methods=["POST"])
+def add_admin():
+    if not check_admin():
+        return redirect(url_for("login"))
+        
+    username = request.form.get("username", "").strip()
+    password = request.form.get("password", "").strip()
+    
+    if username and password:
+        try:
+            query_db("INSERT INTO admins (username, password) VALUES (%s, %s)", (username, password), commit=True)
+            flash(f"تم إنشاء حساب الأدمن '{username}' بنجاح!", "success")
+        except Exception:
+            flash("اسم المستخدم هذا موجود بالفعل!", "danger")
+    else:
+        flash("يرجى ملء جميع الحقول", "danger")
+        
+    return redirect(url_for("dashboard"))
+
+@app.route("/delete_admin/<int:admin_id>", methods=["POST"])
+def delete_admin(admin_id):
+    if not check_admin():
+        return redirect(url_for("login"))
+        
+    admin = query_db("SELECT username FROM admins WHERE id=%s", (admin_id,), fetchone=True)
+    if admin and admin["username"] == "TwvxCheat":
+        flash("لا يمكنك حذف حساب الأدمن الرئيسي!", "danger")
+    else:
+        query_db("DELETE FROM admins WHERE id=%s", (admin_id,), commit=True)
+        flash("تم حذف حساب الأدمن بنجاح", "success")
+        
+    return redirect(url_for("dashboard"))
 
 @app.route("/generate_key", methods=["GET", "POST"])
 def generate_key():
@@ -171,7 +223,7 @@ def generate_key():
             key_type = request.form.get("key_type", "basic") or "basic"
             duration_days = int(request.form.get("duration_days", 30))
             max_devices = int(request.form.get("max_devices", 1))
-            admin_user = session.get("username", "TwvxCheat")
+            admin_user = session.get("username", "Admin")
             
             key_code = f"TWVX-{key_type.upper()}-" + secrets.token_hex(4).upper()
             
