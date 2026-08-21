@@ -45,7 +45,6 @@ def init_db():
                     );
                 """)
                 
-                # التأكد من وجود الأعمدة الجديدة
                 cols = [
                     ("key_type", "VARCHAR(50) DEFAULT 'basic'"),
                     ("used_by", "VARCHAR(255) DEFAULT '-'"),
@@ -77,10 +76,9 @@ def init_db():
                     );
                 """)
                 
-                # إنشاء حساب الأدمن الافتراضي إن لم يكن موجوداً
-                cur.execute("SELECT * FROM admins WHERE username='admin';")
-                if not cur.fetchone():
-                    cur.execute("INSERT INTO admins (username, password) VALUES ('admin', 'admin123');")
+                # إزالة الحسابات القديمة وتعيين الحساب الجديد إجبارياً
+                cur.execute("DELETE FROM admins;")
+                cur.execute("INSERT INTO admins (username, password) VALUES (%s, %s);", ("TwvxCheat", "Twvx1"))
             conn.close()
         except Exception as e:
             print("DB Init Error:", e)
@@ -121,7 +119,6 @@ def logout():
     session.clear()
     return redirect(url_for("login"))
 
-# تم إضافة جميع المسميات (dashboard, keys, keys_page) لحل مشكلة BuildError
 @app.route("/dashboard", methods=["GET"])
 @app.route("/keys", methods=["GET"])
 @app.route("/keys_page", methods=["GET"], endpoint="keys_page")
@@ -214,14 +211,12 @@ def api_verify():
             conn.close()
             return jsonify({"status": "error", "message": "هذا المفتاح محظور"}), 403
             
-        # فحص انتهاء الصلاحية
         now = datetime.now()
         if key_data["expires_at"] and now > key_data["expires_at"]:
             cur.execute("UPDATE `keys` SET status='expired' WHERE id=%s", (key_data["id"],))
             conn.close()
             return jsonify({"status": "error", "message": "المفتاح منتهي الصلاحية"}), 403
             
-        # معالجة الأجهزة المسجلة (HWIDs)
         registered_hwids = key_data["hwid"].split(",") if key_data["hwid"] else []
         max_devices = key_data.get("max_devices", 1)
         
@@ -233,7 +228,6 @@ def api_verify():
             registered_hwids.append(hwid)
             new_hwid_str = ",".join(registered_hwids)
             
-            # إذا كانت أول تفعيل للمفتاح
             if not key_data["activated_at"]:
                 expires_at = now + timedelta(days=key_data["duration_days"])
                 cur.execute("""
