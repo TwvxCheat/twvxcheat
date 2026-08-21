@@ -21,10 +21,6 @@
             --bs-table-bg: #1e293b;
             --bs-table-border-color: #334155;
         }
-        .btn-primary {
-            background-color: #2563eb;
-            border: none;
-        }
         .btn-success {
             background-color: #16a34a;
             border: none;
@@ -32,14 +28,19 @@
         .badge-active { background-color: #16a34a; }
         .badge-expired { background-color: #dc2626; }
         .badge-banned { background-color: #475569; }
+        .copy-btn {
+            padding: 2px 8px;
+            font-size: 0.8rem;
+            border-radius: 6px;
+        }
     </style>
 </head>
-<body class="p-3 p-md-5">
+<body class="p-2 p-md-4">
 
-    <div class="container">
+    <div class="container-fluid max-width-xl">
         <!-- الهيدر وتسجيل الخروج -->
         <div class="d-flex justify-content-between align-items-center mb-4">
-            <h2 class="fw-bold"><i class="fa-solid me-2 text-primary">👑</i> TwvxCheat Panel</h2>
+            <h3 class="fw-bold m-0"><i class="fa-solid fa-crown me-2 text-warning"></i> TwvxCheat Panel</h3>
             <a href="/logout" class="btn btn-outline-danger btn-sm"><i class="fa-solid fa-right-from-bracket"></i> خروج</a>
         </div>
 
@@ -56,41 +57,41 @@
         {% endwith %}
 
         <!-- الإحصائيات -->
-        <div class="row g-3 mb-4">
-            <div class="col-md-3">
-                <div class="card p-3 text-center">
+        <div class="row g-2 mb-4">
+            <div class="col-6 col-md-3">
+                <div class="card p-2 text-center">
                     <small class="text-secondary">إجمالي المفاتيح</small>
-                    <h3 class="fw-bold text-white mb-0">{{ total_keys }}</h3>
+                    <h4 class="fw-bold text-white mb-0">{{ total_keys }}</h4>
                 </div>
             </div>
-            <div class="col-md-3">
-                <div class="card p-3 text-center">
+            <div class="col-6 col-md-3">
+                <div class="card p-2 text-center">
                     <small class="text-secondary">المفاتيح النشطة</small>
-                    <h3 class="fw-bold text-success mb-0">{{ active_keys }}</h3>
+                    <h4 class="fw-bold text-success mb-0">{{ active_keys }}</h4>
                 </div>
             </div>
-            <div class="col-md-3">
-                <div class="card p-3 text-center">
+            <div class="col-6 col-md-3">
+                <div class="card p-2 text-center">
                     <small class="text-secondary">المستعملة (HWID)</small>
-                    <h3 class="fw-bold text-info mb-0">{{ used_keys }}</h3>
+                    <h4 class="fw-bold text-info mb-0">{{ used_keys }}</h4>
                 </div>
             </div>
-            <div class="col-md-3">
-                <div class="card p-3 text-center">
+            <div class="col-6 col-md-3">
+                <div class="card p-2 text-center">
                     <small class="text-secondary">المنتهية / المحظورة</small>
-                    <h3 class="fw-bold text-danger mb-0">{{ expired_keys + banned_keys }}</h3>
+                    <h4 class="fw-bold text-danger mb-0">{{ expired_keys + banned_keys }}</h4>
                 </div>
             </div>
         </div>
 
-        <div class="row g-4">
+        <div class="row g-3">
             <!-- نموذج توليد المفاتيح -->
             <div class="col-lg-4">
-                <div class="card p-4">
-                    <h5 class="fw-bold mb-3"><i class="fa-solid fa-key text-warning"></i> توليد مفتاح جديد</h5>
+                <div class="card p-3">
+                    <h5 class="fw-bold mb-3"><i class="fa-solid fa-key text-warning me-1"></i> توليد مفتاح جديد</h5>
                     <form action="/generate_key" method="POST">
                         <div class="mb-3">
-                            <label class="form-label text-secondary">نوع المفتاح:</label>
+                            <label class="form-label text-secondary small">نوع المفتاح:</label>
                             <select name="key_type" class="form-select bg-dark text-white border-secondary">
                                 <option value="basic">Basic</option>
                                 <option value="vip">VIP</option>
@@ -99,11 +100,11 @@
                             </select>
                         </div>
                         <div class="mb-3">
-                            <label class="form-label text-secondary">المدة (بالأيام):</label>
+                            <label class="form-label text-secondary small">المدة (بالأيام):</label>
                             <input type="number" name="duration_days" value="30" min="1" class="form-control bg-dark text-white border-secondary" required>
                         </div>
                         <div class="mb-3">
-                            <label class="form-label text-secondary">عدد الأجهزة المسموحة:</label>
+                            <label class="form-label text-secondary small">عدد الأجهزة المسموحة:</label>
                             <input type="number" name="max_devices" value="1" min="1" class="form-control bg-dark text-white border-secondary" required>
                         </div>
                         <button type="submit" class="btn btn-success w-100 py-2 fw-bold">توليد المفتاح 🔑</button>
@@ -114,12 +115,12 @@
             <!-- جدول المفاتيح -->
             <div class="col-lg-8">
                 <div class="card p-3">
-                    <h5 class="fw-bold mb-3"><i class="fa-solid fa-list text-primary"></i> قائمة المفاتيح</h5>
+                    <h5 class="fw-bold mb-3"><i class="fa-solid fa-list text-primary me-1"></i> قائمة المفاتيح</h5>
                     <div class="table-responsive">
-                        <table class="table table-dark table-hover align-middle">
+                        <table class="table table-dark table-hover align-middle mb-0 text-nowrap">
                             <thead>
-                                <tr class="text-secondary">
-                                    <th>المفتاح</th>
+                                <tr class="text-secondary small">
+                                    <th>المفتاح والنسخ</th>
                                     <th>النوع</th>
                                     <th>الأدمن</th>
                                     <th>HWID</th>
@@ -130,14 +131,21 @@
                             <tbody>
                                 {% for key in keys %}
                                 <tr>
-                                    <td><code class="text-info fw-bold">{{ key.key_code }}</code></td>
+                                    <td>
+                                        <div class="d-flex align-items-center gap-2">
+                                            <code class="text-info fw-bold">{{ key.key_code }}</code>
+                                            <button class="btn btn-outline-info copy-btn" onclick="copyKey('{{ key.key_code }}', this)" title="نسخ الكي">
+                                                <i class="fa-regular fa-copy"></i>
+                                            </button>
+                                        </div>
+                                    </td>
                                     <td><span class="badge bg-secondary">{{ key.key_type|upper }}</span></td>
                                     <td><span class="badge bg-primary">{{ key.created_by or 'TwvxCheat' }}</span></td>
                                     <td>
                                         {% if key.hwid %}
-                                            <small class="text-truncate d-inline-block" style="max-width: 120px;" title="{{ key.hwid }}">{{ key.hwid }}</small>
+                                            <small class="text-truncate d-inline-block" style="max-width: 100px;" title="{{ key.hwid }}">{{ key.hwid }}</small>
                                         {% else %}
-                                            <span class="text-muted">غير مستخدم</span>
+                                            <span class="text-muted small">غير مستخدم</span>
                                         {% endif %}
                                     </td>
                                     <td>
@@ -152,10 +160,10 @@
                                     <td>
                                         <div class="d-flex gap-1">
                                             <form action="/reset_hwid/{{ key.id }}" method="POST" class="d-inline">
-                                                <button type="submit" class="btn btn-warning btn-sm" title="إعادة ضبط HWID"><i class="fa-solid fa-rotate-right"></i></button>
+                                                <button type="submit" class="btn btn-warning btn-sm py-0 px-2" title="إعادة ضبط HWID"><i class="fa-solid fa-rotate-right"></i></button>
                                             </form>
                                             <form action="/delete_key/{{ key.id }}" method="POST" class="d-inline">
-                                                <button type="submit" class="btn btn-danger btn-sm" title="حذف المفتاح"><i class="fa-solid fa-trash"></i></button>
+                                                <button type="submit" class="btn btn-danger btn-sm py-0 px-2" title="حذف المفتاح"><i class="fa-solid fa-trash"></i></button>
                                             </form>
                                         </div>
                                     </td>
@@ -174,5 +182,18 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        function copyKey(text, btn) {
+            navigator.clipboard.writeText(text).then(() => {
+                const icon = btn.querySelector('i');
+                icon.className = 'fa-solid fa-check text-success';
+                setTimeout(() => {
+                    icon.className = 'fa-regular fa-copy';
+                }, 1500);
+            }).catch(() => {
+                alert('تم نسخ الكي: ' + text);
+            });
+        }
+    </script>
 </body>
 </html>
