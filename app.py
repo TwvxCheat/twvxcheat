@@ -111,7 +111,7 @@ def init_db():
             );
         """)
     
-    # إضافة حساب الأدمن الرئيسي فقط إذا لم يكن موجواً
+    # إضافة الأدمن الرئيسي الافتراضي
     existing_admin = query_db("SELECT * FROM admins WHERE username=%s", ("TwvxCheat",), fetchone=True)
     if not existing_admin:
         query_db("INSERT INTO admins (username, password) VALUES (%s, %s)", ("TwvxCheat", "Twvx1"), commit=True)
@@ -123,7 +123,7 @@ init_db()
 def check_admin():
     return session.get("logged_in") is True
 
-# --- المسارات ---
+# --- المسارات والصفحات ---
 
 @app.route("/")
 def index():
@@ -137,7 +137,6 @@ def login():
         username = request.form.get("username", "").strip()
         password = request.form.get("password", "").strip()
         
-        # التحقق من قاعدة البيانات مباشرة
         admin = query_db("SELECT * FROM admins WHERE username=%s AND password=%s", (username, password), fetchone=True)
         if admin:
             session["logged_in"] = True
@@ -254,55 +253,64 @@ def delete_key(key_id):
     flash("تم حذف المفتاح", "success")
     return redirect(url_for("keys_page"))
 
-# --- API للتحقق من الكي ---
-@app.route("/api/verify", methods=["POST"])
+# --- API تفعيل وتأكيد المفتاح المطور ---
+@app.route("/api/verify", methods=["GET", "POST"])
 def api_verify():
-    data = request.get_json() or {}
-    key_code = data.get("key")
-    hwid = data.get("hwid")
-    
+    if request.method == "POST":
+        data = request.get_json(silent=True) or request.form or {}
+        key_code = data.get("key", "").strip()
+        hwid = data.get("hwid", "").strip()
+    else:
+        key_code = request.args.get("key", "").strip()
+        hwid = request.args.get("hwid", "").strip()
+
     if not key_code or not hwid:
-        return jsonify({"status": "error", "message": "المفتاح وبصمة الجهاز مطلوبة"}), 400
-        
+        return "INVALID:MISSING_DATA", 400
+
     key_data = query_db("SELECT * FROM keys WHERE key_code=%s", (key_code,), fetchone=True)
     if not key_data:
-        return jsonify({"status": "error", "message": "المفتاح غير موجود"}), 404
-        
-    if key_data["status"] == "banned":
-        return jsonify({"status": "error", "message": "هذا المفتاح محظور"}), 403
-        
+        return "INVALID:NOT_FOUND", 404
+
+    if key_data.get("status") == "banned":
+        return "INVALID:BANNED", 403
+
     now = datetime.now()
-    if key_data["expires_at"] and now > datetime.strptime(str(key_data["expires_at"])[:19], "%Y-%m-%d %H:%M:%S"):
-        query_db("UPDATE keys SET status='expired' WHERE id=%s", (key_data["id"],), commit=True)
-        return jsonify({"status": "error", "message": "المفتاح منتهي الصلاحية"}), 403
-        
-    registered_hwids = key_data["hwid"].split(",") if key_data["hwid"] else []
+
+    if key_data.get("expires_at"):
+        exp_date = datetime.strptime(str(key_data["expires_at"])[:19], "%Y-%m-%d %H:%M:%S")
+        if now > exp_date:
+            query_db("UPDATE keys SET status='expired' WHERE id=%s", (key_data["id"],), commit=True)
+            return "INVALID:EXPIRED", 403
+
+    registered_hwids = [h for h in (key_data.get("hwid") or "").split(",") if h]
     max_devices = key_data.get("max_devices", 1)
-    
+
     if hwid not in registered_hwids:
         if len(registered_hwids) >= max_devices:
-            return jsonify({"status": "error", "message": "MAX_DEVICES_REACHED"}), 403
-        
+            return "INVALID:MAX_DEVICES_REACHED", 403
+
         registered_hwids.append(hwid)
         new_hwid_str = ",".join(registered_hwids)
-        
-        if not key_data["activated_at"]:
-            expires_at = now + timedelta(days=key_data["duration_days"])
+
+        if not key_data.get("activated_at"):
+            duration = key_data.get("duration_days", 30)
+            expires_at = now + timedelta(days=duration)
             query_db(
                 "UPDATE keys SET hwid=%s, activated_at=%s, expires_at=%s WHERE id=%s",
                 (new_hwid_str, now.strftime("%Y-%m-%d %H:%M:%S"), expires_at.strftime("%Y-%m-%d %H:%M:%S"), key_data["id"]),
                 commit=True
             )
+            days_left = duration
         else:
             query_db("UPDATE keys SET hwid=%s WHERE id=%s", (new_hwid_str, key_data["id"]), commit=True)
+            exp_date = datetime.strptime(str(key_data["expires_at"])[:19], "%Y-%m-%d %H:%M:%S")
+            days_left = max(0, (exp_date - now).days)
+    else:
+        exp_date = datetime.strptime(str(key_data["expires_at"])[:19], "%Y-%m-%d %H:%M:%S")
+        days_left = max(0, (exp_date - now).days)
 
-    return jsonify({
-        "status": "success",
-        "message": "تم التفعيل بنجاح",
-        "key_type": key_data["key_type"],
-        "max_devices": max_devices,
-        "current_devices": len(registered_hwids)
-    })
+    key_type = (key_data.get("key_type") or "basic").upper()
+    return f"VALID|{key_type}|{days_left}_DAYS|{len(registered_hwids)}/{max_devices}", 200
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
