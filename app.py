@@ -142,7 +142,22 @@ def dashboard():
             keys_list = cur.fetchall()
         conn.close()
     
-    return render_template("dashboard.html", keys=keys_list)
+    # حساب الإحصائيات لتمريرها إلى القالب
+    total_keys = len(keys_list)
+    active_keys = sum(1 for k in keys_list if k.get("status") == "active")
+    expired_keys = sum(1 for k in keys_list if k.get("status") == "expired")
+    banned_keys = sum(1 for k in keys_list if k.get("status") == "banned")
+    used_keys = sum(1 for k in keys_list if k.get("hwid"))
+
+    return render_template(
+        "dashboard.html", 
+        keys=keys_list,
+        total_keys=total_keys,
+        active_keys=active_keys,
+        expired_keys=expired_keys,
+        banned_keys=banned_keys,
+        used_keys=used_keys
+    )
 
 @app.route("/generate_key", methods=["POST"])
 def generate_key():
