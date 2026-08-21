@@ -3,63 +3,142 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TwvxCheat - لوحة التحكم</title>
+    <title>TwvxCheat - VIP Control Panel</title>
+    <!-- Bootstrap 5 RTL -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.rtl.min.css" rel="stylesheet">
+    <!-- FontAwesome Icons -->
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <!-- Google FontTajawal -->
+    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700;900&display=swap" rel="stylesheet">
+    
     <style>
+        :root {
+            --bg-dark: #0b0f19;
+            --card-bg: rgba(17, 24, 39, 0.85);
+            --border-color: #1f2937;
+            --accent-cyan: #38bdf8;
+            --accent-green: #22c55e;
+            --accent-purple: #a855f7;
+            --accent-red: #ef4444;
+        }
+
         body {
-            background-color: #0f172a !important;
+            background-color: var(--bg-dark) !important;
             color: #ffffff !important;
-            font-family: system-ui, -apple-system, sans-serif;
+            font-family: 'Tajawal', system-ui, sans-serif;
+            min-height: 100vh;
+            background-image: radial-gradient(circle at top right, rgba(56, 189, 248, 0.05), transparent 40%),
+                              radial-gradient(circle at bottom left, rgba(168, 85, 247, 0.05), transparent 40%);
         }
-        .card {
-            background-color: #1e293b !important;
-            border: 1px solid #334155 !important;
-            border-radius: 12px;
+
+        .glass-card {
+            background: var(--card-bg) !important;
+            border: 1px solid var(--border-color) !important;
+            border-radius: 16px;
+            backdrop-filter: blur(12px);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.4);
+            transition: all 0.3s ease;
         }
+
+        .stat-card {
+            position: relative;
+            overflow: hidden;
+        }
+        .stat-card::before {
+            content: '';
+            position: absolute;
+            top: 0; right: 0; width: 4px; height: 100%;
+        }
+        .stat-total::before { background-color: var(--accent-cyan); }
+        .stat-active::before { background-color: var(--accent-green); }
+        .stat-used::before { background-color: var(--accent-purple); }
+        .stat-expired::before { background-color: var(--accent-red); }
+
         h1, h2, h3, h4, h5, h6, label, p, span, small, td, th, div {
             color: #ffffff !important;
         }
-        .text-secondary, .text-muted {
-            color: #cbd5e1 !important;
-        }
+
+        .text-muted-custom { color: #94a3b8 !important; }
+
         .form-control, .form-select {
-            background-color: #0f172a !important;
+            background-color: #030712 !important;
             color: #ffffff !important;
-            border-color: #475569 !important;
+            border: 1px solid #374151 !important;
+            border-radius: 10px;
+            padding: 10px 14px;
         }
-        .form-control::placeholder {
-            color: #64748b !important;
+        .form-control:focus, .form-select:focus {
+            border-color: var(--accent-cyan) !important;
+            box-shadow: 0 0 10px rgba(56, 189, 248, 0.2) !important;
         }
+
+        .btn-cyber-green {
+            background: linear-gradient(135deg, #16a34a, #22c55e);
+            color: white !important;
+            border: none;
+            font-weight: bold;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(34, 197, 94, 0.3);
+            transition: transform 0.2s;
+        }
+        .btn-cyber-green:hover { transform: translateY(-2px); }
+
+        .btn-cyber-blue {
+            background: linear-gradient(135deg, #2563eb, #3b82f6);
+            color: white !important;
+            border: none;
+            font-weight: bold;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(59, 130, 246, 0.3);
+        }
+
         .table-dark {
-            --bs-table-bg: #1e293b !important;
-            --bs-table-border-color: #334155 !important;
-            color: #ffffff !important;
+            --bs-table-bg: transparent !important;
+            --bs-table-border-color: #1f2937 !important;
         }
-        .btn-success { background-color: #16a34a !important; border: none; }
-        .badge-active { background-color: #16a34a !important; color: #fff !important; }
-        .badge-expired { background-color: #dc2626 !important; color: #fff !important; }
-        .badge-banned { background-color: #475569 !important; color: #fff !important; }
-        .copy-btn { padding: 2px 8px; font-size: 0.8rem; border-radius: 6px; }
+
+        .badge-vip { background: linear-gradient(135deg, #d97706, #f59e0b); color: #fff !important; }
+        .badge-premium { background: linear-gradient(135deg, #9333ea, #a855f7); color: #fff !important; }
+        .badge-basic { background: #374151; color: #38bdf8 !important; border: 1px solid #4b5563; }
+
+        .copy-btn {
+            background: rgba(56, 189, 248, 0.1);
+            border: 1px solid rgba(56, 189, 248, 0.3);
+            color: var(--accent-cyan) !important;
+            border-radius: 8px;
+            transition: 0.2s;
+        }
+        .copy-btn:hover { background: var(--accent-cyan); color: #000 !important; }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #030712; }
+        ::-webkit-scrollbar-thumb { background: #374151; border-radius: 4px; }
     </style>
 </head>
 <body class="p-2 p-md-4">
 
     <div class="container-fluid max-width-xl">
-        <!-- الهيدر -->
-        <div class="d-flex justify-content-between align-items-center mb-4">
-            <div>
-                <h3 class="fw-bold m-0"><i class="fa-solid fa-crown me-2 text-warning"></i> TwvxCheat Panel</h3>
-                <small class="text-secondary">مرحباً بك، <span class="text-info fw-bold">{{ current_user }}</span></small>
+        
+        <!-- الهيدر الرئيسي -->
+        <div class="d-flex justify-content-between align-items-center mb-4 p-3 glass-card">
+            <div class="d-flex align-items-center gap-3">
+                <div class="p-2 bg-dark rounded-3 border border-warning">
+                    <i class="fa-solid fa-crown text-warning fs-3"></i>
+                </div>
+                <div>
+                    <h4 class="fw-bold m-0">TwvxCheat Panel</h4>
+                    <small class="text-muted-custom">مرحباً بك، <span class="text-info fw-bold">{{ current_user }}</span></small>
+                </div>
             </div>
-            <a href="/logout" class="btn btn-outline-danger btn-sm"><i class="fa-solid fa-right-from-bracket"></i> خروج</a>
+            <a href="/logout" class="btn btn-outline-danger btn-sm px-3 rounded-3"><i class="fa-solid fa-right-from-bracket me-1"></i> خروج</a>
         </div>
 
         <!-- التنبيهات -->
         {% with messages = get_flashed_messages(with_categories=true) %}
           {% if messages %}
             {% for category, message in messages %}
-              <div class="alert alert-{{ category if category != 'error' else 'danger' }} alert-dismissible fade show">
+              <div class="alert alert-{{ category if category != 'error' else 'danger' }} alert-dismissible fade show border-0 shadow">
                 {{ message }}
                 <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
               </div>
@@ -67,86 +146,90 @@
           {% endif %}
         {% endwith %}
 
-        <!-- الإحصائيات -->
-        <div class="row g-2 mb-4">
+        <!-- بطاقات الإحصائيات المبتكرة -->
+        <div class="row g-3 mb-4">
             <div class="col-6 col-md-3">
-                <div class="card p-2 text-center">
-                    <small class="text-secondary">إجمالي المفاتيح</small>
-                    <h4 class="fw-bold text-white mb-0">{{ total_keys }}</h4>
+                <div class="glass-card p-3 text-center stat-card stat-total">
+                    <span class="text-muted-custom small d-block mb-1">إجمالي المفاتيح</span>
+                    <h3 class="fw-bold mb-0 text-white">{{ total_keys }}</h3>
                 </div>
             </div>
             <div class="col-6 col-md-3">
-                <div class="card p-2 text-center">
-                    <small class="text-secondary">المفاتيح النشطة</small>
-                    <h4 class="fw-bold text-success mb-0">{{ active_keys }}</h4>
+                <div class="glass-card p-3 text-center stat-card stat-active">
+                    <span class="text-muted-custom small d-block mb-1">المفاتيح النشطة</span>
+                    <h3 class="fw-bold mb-0 text-success">{{ active_keys }}</h3>
                 </div>
             </div>
             <div class="col-6 col-md-3">
-                <div class="card p-2 text-center">
-                    <small class="text-secondary">المستعملة (HWID)</small>
-                    <h4 class="fw-bold text-info mb-0">{{ used_keys }}</h4>
+                <div class="glass-card p-3 text-center stat-card stat-used">
+                    <span class="text-muted-custom small d-block mb-1">المستخدمة (HWID)</span>
+                    <h3 class="fw-bold mb-0 text-info">{{ used_keys }}</h3>
                 </div>
             </div>
             <div class="col-6 col-md-3">
-                <div class="card p-2 text-center">
-                    <small class="text-secondary">المنتهية / المحظورة</small>
-                    <h4 class="fw-bold text-danger mb-0">{{ expired_keys + banned_keys }}</h4>
+                <div class="glass-card p-3 text-center stat-card stat-expired">
+                    <span class="text-muted-custom small d-block mb-1">المنتهية / المحظورة</span>
+                    <h3 class="fw-bold mb-0 text-danger">{{ expired_keys + banned_keys }}</h3>
                 </div>
             </div>
         </div>
 
         <div class="row g-3">
-            <!-- نماذج الإدخال -->
+            <!-- القائمة الجانبية: النماذج -->
             <div class="col-lg-4">
-                <!-- نموذج التوليد -->
-                <div class="card p-3 mb-3">
-                    <h5 class="fw-bold mb-3"><i class="fa-solid fa-key text-warning me-1"></i> توليد مفتاح جديد</h5>
+                
+                <!-- توليد مفتاح -->
+                <div class="glass-card p-4 mb-3">
+                    <h5 class="fw-bold mb-3 d-flex align-items-center gap-2">
+                        <i class="fa-solid fa-key text-warning"></i> توليد مفتاح جديد
+                    </h5>
                     <form action="/generate_key" method="POST">
-                        <div class="mb-2">
-                            <label class="form-label small">نوع المفتاح:</label>
+                        <div class="mb-3">
+                            <label class="form-label small text-muted-custom">نوع المفتاح:</label>
                             <select name="key_type" class="form-select">
                                 <option value="basic">Basic</option>
                                 <option value="vip">VIP</option>
                                 <option value="premium">Premium</option>
                             </select>
                         </div>
-                        <div class="mb-2">
-                            <label class="form-label small">المدة (بالأيام):</label>
+                        <div class="mb-3">
+                            <label class="form-label small text-muted-custom">المدة (بالأيام):</label>
                             <input type="number" name="duration_days" value="30" min="1" class="form-control" required>
                         </div>
                         <div class="mb-3">
-                            <label class="form-label small">عدد الأجهزة المسموحة:</label>
+                            <label class="form-label small text-muted-custom">الأجهزة المسموحة:</label>
                             <input type="number" name="max_devices" value="1" min="1" class="form-control" required>
                         </div>
-                        <button type="submit" class="btn btn-success w-100 py-2 fw-bold">توليد المفتاح 🔑</button>
+                        <button type="submit" class="btn btn-cyber-green w-100 py-2 mt-2">توليد المفتاح 🔑</button>
                     </form>
                 </div>
 
-                <!-- نموذج إضافة أدمن جديد -->
-                <div class="card p-3">
-                    <h5 class="fw-bold mb-3"><i class="fa-solid fa-user-plus text-info me-1"></i> إنشاء حساب أدمن لصديقك</h5>
+                <!-- إضافة أدمن -->
+                <div class="glass-card p-4">
+                    <h5 class="fw-bold mb-3 d-flex align-items-center gap-2">
+                        <i class="fa-solid fa-user-plus text-info"></i> إنشاء حساب أدمن
+                    </h5>
                     <form action="/add_admin" method="POST">
-                        <div class="mb-2">
-                            <label class="form-label small">اسم المستخدم:</label>
+                        <div class="mb-3">
                             <input type="text" name="username" class="form-control" placeholder="اسم المستخدم" required>
                         </div>
                         <div class="mb-3">
-                            <label class="form-label small">كلمة السر:</label>
                             <input type="password" name="password" class="form-control" placeholder="كلمة السر" required>
                         </div>
-                        <button type="submit" class="btn btn-primary w-100 py-2 fw-bold">إضافة أدمن جديد 👤</button>
+                        <button type="submit" class="btn btn-cyber-blue w-100 py-2">إضافة أدمن جديد 👤</button>
                     </form>
                 </div>
             </div>
 
-            <!-- الجداول -->
+            <!-- الجداول والمحتوى الرئيسي -->
             <div class="col-lg-8">
-                <!-- قائمة الأدمنية -->
-                <div class="card p-3 mb-3">
-                    <h6 class="fw-bold mb-2"><i class="fa-solid fa-users text-info me-1"></i> قائمة المشرفين (Admins)</h6>
+                
+                <!-- الأدمنية -->
+                <div class="glass-card p-3 mb-3">
+                    <h6 class="fw-bold mb-2 text-muted-custom"><i class="fa-solid fa-users text-info me-1"></i> المشرفين الحاليين</h6>
                     <div class="d-flex flex-wrap gap-2">
                         {% for adm in admins %}
-                            <div class="badge bg-dark border border-secondary p-2 d-flex align-items-center gap-2">
+                            <div class="badge bg-dark border border-secondary p-2 d-flex align-items-center gap-2 rounded-3">
                                 <span><i class="fa-solid fa-user-shield text-warning me-1"></i> {{ adm.username }}</span>
                                 {% if adm.username != 'TwvxCheat' %}
                                     <form action="/delete_admin/{{ adm.id }}" method="POST" class="d-inline">
@@ -158,13 +241,20 @@
                     </div>
                 </div>
 
-                <!-- جدول المفاتيح -->
-                <div class="card p-3">
-                    <h5 class="fw-bold mb-3"><i class="fa-solid fa-list text-primary me-1"></i> قائمة المفاتيح</h5>
+                <!-- جدول المفاتيح مع محرك البحث المباشر -->
+                <div class="glass-card p-4">
+                    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-3">
+                        <h5 class="fw-bold m-0"><i class="fa-solid fa-list text-primary me-1"></i> قائمة المفاتيح</h5>
+                        <!-- شريط البحث المباشر -->
+                        <div class="position-relative style="min-width: 240px;">
+                            <input type="text" id="searchInput" onkeyup="filterKeys()" class="form-control ps-4 form-control-sm" placeholder="بحث بالكي أو HWID...">
+                        </div>
+                    </div>
+
                     <div class="table-responsive">
-                        <table class="table table-dark table-hover align-middle mb-0 text-nowrap">
+                        <table class="table table-dark table-hover align-middle mb-0 text-nowrap" id="keysTable">
                             <thead>
-                                <tr class="text-secondary small">
+                                <tr class="text-muted-custom small">
                                     <th>المفتاح والنسخ</th>
                                     <th>النوع</th>
                                     <th>المدة / الانتهاء</th>
@@ -179,51 +269,59 @@
                                 <tr>
                                     <td>
                                         <div class="d-flex align-items-center gap-2">
-                                            <code class="text-info fw-bold">{{ key.key_code }}</code>
-                                            <button class="btn btn-outline-info copy-btn" onclick="copyKey('{{ key.key_code }}', this)" title="نسخ الكي">
+                                            <code class="text-info fw-bold fs-6">{{ key.key_code }}</code>
+                                            <button class="btn copy-btn btn-sm" onclick="copyKey('{{ key.key_code }}', this)" title="نسخ الكي">
                                                 <i class="fa-regular fa-copy"></i>
                                             </button>
                                         </div>
                                     </td>
-                                    <td><span class="badge bg-secondary">{{ key.key_type|upper }}</span></td>
+                                    <td>
+                                        {% if key.key_type|lower == 'vip' %}
+                                            <span class="badge badge-vip">VIP</span>
+                                        {% elif key.key_type|lower == 'premium' %}
+                                            <span class="badge badge-premium">PREMIUM</span>
+                                        {% else %}
+                                            <span class="badge badge-basic">BASIC</span>
+                                        {% endif %}
+                                    </td>
                                     <td>
                                         {% if key.expires_at %}
                                             <small class="text-warning fw-bold"><i class="fa-regular fa-clock me-1"></i>{{ key.expires_at }}</small>
                                         {% else %}
-                                            <span class="badge bg-info text-dark">{{ key.duration_days }} يوم (لم يفعل)</span>
+                                            <span class="badge bg-secondary text-light">{{ key.duration_days }} يوم (جديد)</span>
                                         {% endif %}
                                     </td>
-                                    <td><span class="badge bg-primary">{{ key.created_by or 'TwvxCheat' }}</span></td>
+                                    <td><span class="badge bg-primary opacity-75">{{ key.created_by or 'TwvxCheat' }}</span></td>
                                     <td>
                                         {% if key.hwid %}
-                                            <small class="text-truncate d-inline-block" style="max-width: 100px;" title="{{ key.hwid }}">{{ key.hwid }}</small>
+                                            <small class="text-truncate d-inline-block text-cyan" style="max-width: 100px;" title="{{ key.hwid }}">{{ key.hwid }}</small>
                                         {% else %}
-                                            <span class="text-secondary small">غير مستخدم</span>
+                                            <span class="text-muted-custom small">غير مستخدم</span>
                                         {% endif %}
                                     </td>
                                     <td>
                                         {% if key.status == 'active' %}
-                                            <span class="badge badge-active">نشط</span>
+                                            <span class="badge bg-success">نشط</span>
                                         {% elif key.status == 'expired' %}
-                                            <span class="badge badge-expired">منتهي</span>
+                                            <span class="badge bg-danger">منتهي</span>
                                         {% else %}
-                                            <span class="badge badge-banned">محظور</span>
+                                            <span class="badge bg-dark border">محظور</span>
                                         {% endif %}
                                     </td>
                                     <td>
                                         <div class="d-flex gap-1">
                                             <form action="/reset_hwid/{{ key.id }}" method="POST" class="d-inline">
-                                                <button type="submit" class="btn btn-warning btn-sm py-0 px-2" title="إعادة ضبط HWID"><i class="fa-solid fa-rotate-right"></i></button>
+                                                <button type="submit" class="btn btn-warning btn-sm p-1 px-2 rounded-2" title="إعادة ضبط HWID"><i class="fa-solid fa-rotate-right"></i></button>
                                             </form>
                                             <form action="/delete_key/{{ key.id }}" method="POST" class="d-inline">
-                                                <button type="submit" class="btn btn-danger btn-sm py-0 px-2" title="حذف المفتاح"><i class="fa-solid fa-trash"></i></button>
+                                                <button type="submit" class="btn btn-danger btn-sm p-1 px-2 rounded-2" title="حذف المفتاح"><i class="fa-solid fa-trash"></i></button>
                                             </form>
                                         </div>
                                     </td>
                                 </tr>
                                 {% else %}
                                 <tr>
-                                    <td colspan="7" class="text-center text-secondary py-4">لا توجد مفاتيح مضافة حتى الآن</td>
+                                    <td colspan="7" class="text-center text-muted-custom py-4">لا توجد مفاتيح مضافة حتى الآن</td>
                                 </tr>
                                 {% endfor %}
                             </tbody>
@@ -236,6 +334,23 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
+        // دالة تصفية المفاتيح من شريط البحث المباشر
+        function filterKeys() {
+            let input = document.getElementById("searchInput").value.toUpperCase();
+            let table = document.getElementById("keysTable");
+            let tr = table.getElementsByTagName("tr");
+
+            for (let i = 1; i < tr.length; i++) {
+                let text = tr[i].textContent || tr[i].innerText;
+                if (text.toUpperCase().indexOf(input) > -1) {
+                    tr[i].style.display = "";
+                } else {
+                    tr[i].style.display = "none";
+                }
+            }
+        }
+
+        // دالة نسخ الكي
         function copyKey(text, btn) {
             navigator.clipboard.writeText(text).then(() => {
                 const icon = btn.querySelector('i');
@@ -243,8 +358,6 @@
                 setTimeout(() => {
                     icon.className = 'fa-regular fa-copy';
                 }, 1500);
-            }).catch(() => {
-                alert('تم نسخ الكي: ' + text);
             });
         }
     </script>
