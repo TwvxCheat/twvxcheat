@@ -143,14 +143,14 @@ def login():
         username = request.form.get("username", "").strip()
         password = request.form.get("password", "").strip()
 
-        # الأدمن الرئيسي
+        # 1. الأدمن الرئيسي
         if username == ADMIN_USER and password == ADMIN_PASS:
             session["logged_in"] = True
             session["admin_user"] = username
             flash("تم تسجيل الدخول بنجاح 👋", "success")
             return redirect("/dashboard")
 
-        # الأدمنية المضافين
+        # 2. الأدمنية المضافين من الداتابيز
         conn, err = connect_db()
         if conn:
             try:
@@ -326,11 +326,16 @@ def delete_key(key_id=None):
             flash(f"خطأ الحذف: {e}", "danger")
     return redirect("/dashboard")
 
-# ================= API VERIFY =================
+# ================= API VERIFY (SMART ROUTE) =================
 @app.route("/verify", methods=["GET", "POST"], endpoint="verify")
 def verify():
     key = request.args.get("key") or request.form.get("key", "")
+    user_agent = request.headers.get('User-Agent', '')
+
+    # توجيه زائر المتصفح لصفحة الدخول في حال لم يرسل مفتاح
     if not key:
+        if any(browser in user_agent for browser in ["Mozilla", "Chrome", "Safari", "Edge", "Mobile"]):
+            return redirect("/login")
         return "INVALID", 200, {'Content-Type': 'text/plain'}
 
     conn, err = connect_db()
