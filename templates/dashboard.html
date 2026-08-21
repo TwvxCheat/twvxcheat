@@ -95,6 +95,7 @@
                                 <option value="basic">Basic</option>
                                 <option value="vip">VIP</option>
                                 <option value="premium">Premium</option>
+                                <option value="admin">ADMIN</option>
                             </select>
                         </div>
                         <div class="mb-3">
@@ -120,8 +121,9 @@
                                 <tr class="text-secondary">
                                     <th>المفتاح</th>
                                     <th>النوع</th>
-                                    <th>المالك / HWID</th>
-                                    <th>المالية</th>
+                                    <th>الأدمن</th>
+                                    <th>HWID</th>
+                                    <th>الحالة</th>
                                     <th>إجراءات</th>
                                 </tr>
                             </thead>
@@ -130,6 +132,7 @@
                                 <tr>
                                     <td><code class="text-info fw-bold">{{ key.key_code }}</code></td>
                                     <td><span class="badge bg-secondary">{{ key.key_type|upper }}</span></td>
+                                    <td><span class="badge bg-primary">{{ key.created_by or 'TwvxCheat' }}</span></td>
                                     <td>
                                         {% if key.hwid %}
                                             <small class="text-truncate d-inline-block" style="max-width: 120px;" title="{{ key.hwid }}">{{ key.hwid }}</small>
@@ -159,7 +162,7 @@
                                 </tr>
                                 {% else %}
                                 <tr>
-                                    <td colspan="5" class="text-center text-muted py-4">لا توجد مفاتيح مضافة حتى الآن</td>
+                                    <td colspan="6" class="text-center text-muted py-4">لا توجد مفاتيح مضافة حتى الآن</td>
                                 </tr>
                                 {% endfor %}
                             </tbody>
@@ -170,6 +173,6 @@
         </div>
     </div>
 
-    <script https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
