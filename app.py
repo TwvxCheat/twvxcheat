@@ -55,7 +55,14 @@ def query_db(query, args=(), fetchone=False, commit=False):
         conn.close()
         return [dict(r) for r in rows]
 
-# --- تهيئة الجداول وإنشاء المشرف الافتراضي ---
+# --- دالة تسجيل التحركات (Logs) ---
+def log_action(action, details):
+    try:
+        query_db("INSERT INTO logs (action, details) VALUES (%s, %s)", (action, details), commit=True)
+    except Exception as e:
+        print(f"Log Error: {e}")
+
+# --- تهيئة الجداول وترقيتها ---
 def init_db():
     conn, db_type = get_db()
     cursor = conn.cursor()
@@ -72,6 +79,8 @@ def init_db():
                 duration_days INTEGER DEFAULT 30,
                 max_devices INTEGER DEFAULT 1,
                 hwid TEXT DEFAULT NULL,
+                is_frozen INTEGER DEFAULT 0,
+                frozen_at DATETIME DEFAULT NULL,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 activated_at DATETIME DEFAULT NULL,
                 expires_at DATETIME DEFAULT NULL
@@ -82,6 +91,14 @@ def init_db():
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 username TEXT UNIQUE NOT NULL,
                 password TEXT NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+        """)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS logs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                action TEXT NOT NULL,
+                details TEXT NOT NULL,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
         """)
@@ -98,6 +115,8 @@ def init_db():
                 `duration_days` INT DEFAULT 30,
                 `max_devices` INT DEFAULT 1,
                 `hwid` TEXT DEFAULT NULL,
+                `is_frozen` INT DEFAULT 0,
+                `frozen_at` DATETIME DEFAULT NULL,
                 `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 `activated_at` DATETIME DEFAULT NULL,
                 `expires_at` DATETIME DEFAULT NULL
@@ -111,7 +130,25 @@ def init_db():
                 `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
         """)
-    
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS `logs` (
+                `id` INT AUTO_INCREMENT PRIMARY KEY,
+                `action` VARCHAR(100) NOT NULL,
+                `details` TEXT NOT NULL,
+                `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+        """)
+
+    # إضافة الأعمدة الجديدة للجداول المسبقة بأمان
+    try:
+        cursor.execute("ALTER TABLE keys ADD COLUMN is_frozen INT DEFAULT 0;")
+    except Exception:
+        pass
+    try:
+        cursor.execute("ALTER TABLE keys ADD COLUMN frozen_at DATETIME DEFAULT NULL;")
+    except Exception:
+        pass
+
     existing_admin = query_db("SELECT * FROM admins WHERE username=%s", ("TwvxCheat",), fetchone=True)
     if not existing_admin:
         query_db("INSERT INTO admins (username, password) VALUES (%s, %s)", ("TwvxCheat", "Twvx1"), commit=True)
@@ -141,6 +178,7 @@ def login():
         if admin:
             session["logged_in"] = True
             session["username"] = admin["username"]
+            log_action("تسجيل دخول", f"سجل المشرف {username} دخوله إلى اللوحة")
             return redirect(url_for("dashboard"))
             
         flash("اسم المستخدم أو كلمة المرور غير صحيحة", "danger")
@@ -148,6 +186,8 @@ def login():
 
 @app.route("/logout")
 def logout():
+    username = session.get("username", "Unregistered")
+    log_action("تسجيل خروج", f"قام المشرف {username} بتسجيل الخروج")
     session.clear()
     return redirect(url_for("login"))
 
@@ -160,22 +200,26 @@ def dashboard():
     
     keys_list = query_db("SELECT * FROM keys ORDER BY id DESC") or []
     admins_list = query_db("SELECT id, username, created_at FROM admins ORDER BY id DESC") or []
+    logs_list = query_db("SELECT * FROM logs ORDER BY id DESC LIMIT 40") or []
     
     total_keys = len(keys_list)
     active_keys = sum(1 for k in keys_list if k.get("status") == "active")
     expired_keys = sum(1 for k in keys_list if k.get("status") == "expired")
     banned_keys = sum(1 for k in keys_list if k.get("status") == "banned")
+    frozen_keys = sum(1 for k in keys_list if k.get("status") == "frozen" or k.get("is_frozen") == 1)
     used_keys = sum(1 for k in keys_list if k.get("hwid"))
 
     return render_template(
         "dashboard.html", 
         keys=keys_list,
         admins=admins_list,
+        logs=logs_list,
         current_user=session.get("username"),
         total_keys=total_keys,
         active_keys=active_keys,
         expired_keys=expired_keys,
         banned_keys=banned_keys,
+        frozen_keys=frozen_keys,
         used_keys=used_keys
     )
 
@@ -186,10 +230,12 @@ def add_admin():
         
     username = request.form.get("username", "").strip()
     password = request.form.get("password", "").strip()
+    admin_user = session.get("username", "Admin")
     
     if username and password:
         try:
             query_db("INSERT INTO admins (username, password) VALUES (%s, %s)", (username, password), commit=True)
+            log_action("إضافة أدمن", f"قام المشرف {admin_user} بإضافة الأدمن الجديد ({username})")
             flash(f"تم إنشاء حساب الأدمن '{username}' بنجاح!", "success")
         except Exception:
             flash("اسم المستخدم هذا موجود بالفعل!", "danger")
@@ -204,10 +250,13 @@ def delete_admin(admin_id):
         return redirect(url_for("login"))
         
     admin = query_db("SELECT username FROM admins WHERE id=%s", (admin_id,), fetchone=True)
+    admin_user = session.get("username", "Admin")
+    
     if admin and admin["username"] == "TwvxCheat":
         flash("لا يمكنك حذف حساب الأدمن الرئيسي!", "danger")
     else:
         query_db("DELETE FROM admins WHERE id=%s", (admin_id,), commit=True)
+        log_action("حذف أدمن", f"قام المشرف {admin_user} بحذف حساب الأدمن ({admin['username'] if admin else admin_id})")
         flash("تم حذف حساب الأدمن بنجاح", "success")
         
     return redirect(url_for("dashboard"))
@@ -231,17 +280,78 @@ def generate_key():
                 (key_code, key_type, admin_user, duration_days, max_devices),
                 commit=True
             )
+            log_action("توليد مفتاح", f"قام المشرف {admin_user} بتوليد المفتاح {key_code} ({key_type.upper()}) لمدة {duration_days} يوم")
             flash("تم توليد المفتاح بنجاح!", "success")
         except Exception as e:
             flash(f"خطأ أثناء التوليد: {str(e)}", "danger")
             
     return redirect(url_for("keys_page"))
 
+@app.route("/freeze_key/<int:key_id>", methods=["POST"])
+def freeze_key(key_id):
+    if not check_admin():
+        return redirect(url_for("login"))
+        
+    key_data = query_db("SELECT * FROM keys WHERE id=%s", (key_id,), fetchone=True)
+    if not key_data:
+        flash("المفتاح غير موجود", "danger")
+        return redirect(url_for("keys_page"))
+        
+    now = datetime.now()
+    is_frozen = key_data.get("is_frozen", 0)
+    admin_user = session.get("username", "Admin")
+    
+    if is_frozen:
+        # إلغاء التجميد
+        frozen_at_str = key_data.get("frozen_at")
+        expires_at_str = key_data.get("expires_at")
+        new_expires_at_str = expires_at_str
+        
+        if frozen_at_str and expires_at_str:
+            try:
+                frozen_at = datetime.strptime(str(frozen_at_str)[:19], "%Y-%m-%d %H:%M:%S")
+                expires_at = datetime.strptime(str(expires_at_str)[:19], "%Y-%m-%d %H:%M:%S")
+                freeze_duration = now - frozen_at
+                new_expires_at = expires_at + freeze_duration
+                new_expires_at_str = new_expires_at.strftime("%Y-%m-%d %H:%M:%S")
+            except Exception:
+                pass
+                
+        query_db(
+            "UPDATE keys SET is_frozen=0, frozen_at=NULL, status='active', expires_at=%s WHERE id=%s",
+            (new_expires_at_str, key_id),
+            commit=True
+        )
+        log_action("إلغاء تجميد مفتاح", f"قام المشرف {admin_user} بفك تجميد المفتاح {key_data['key_code']}")
+        flash("تم إلغاء تجميد المفتاح بنجاح 🟢", "success")
+    else:
+        # تجميد المفتاح
+        if key_data.get("status") == "expired":
+            flash("لا يمكن تجميد مفتاح منتهي الصلاحية", "warning")
+            return redirect(url_for("keys_page"))
+            
+        query_db(
+            "UPDATE keys SET is_frozen=1, frozen_at=%s, status='frozen' WHERE id=%s",
+            (now.strftime("%Y-%m-%d %H:%M:%S"), key_id),
+            commit=True
+        )
+        log_action("تجميد مفتاح", f"قام المشرف {admin_user} بتجميد المفتاح {key_data['key_code']}")
+        flash("تم تجميد المفتاح بنجاح ❄️", "warning")
+        
+    return redirect(url_for("keys_page"))
+
 @app.route("/reset_hwid/<int:key_id>", methods=["GET", "POST"])
 def reset_hwid(key_id):
     if not check_admin():
         return redirect(url_for("login"))
+    
+    key_data = query_db("SELECT key_code FROM keys WHERE id=%s", (key_id,), fetchone=True)
+    admin_user = session.get("username", "Admin")
+    
     query_db("UPDATE keys SET hwid=NULL WHERE id=%s", (key_id,), commit=True)
+    if key_data:
+        log_action("إعادة ضبط HWID", f"قام المشرف {admin_user} بمسح الأجهزة للمفتاح {key_data['key_code']}")
+        
     flash("تم مسح الأجهزة المسجلة للمفتاح", "success")
     return redirect(url_for("keys_page"))
 
@@ -249,11 +359,18 @@ def reset_hwid(key_id):
 def delete_key(key_id):
     if not check_admin():
         return redirect(url_for("login"))
+        
+    key_data = query_db("SELECT key_code FROM keys WHERE id=%s", (key_id,), fetchone=True)
+    admin_user = session.get("username", "Admin")
+    
     query_db("DELETE FROM keys WHERE id=%s", (key_id,), commit=True)
+    if key_data:
+        log_action("حذف مفتاح", f"قام المشرف {admin_user} بحذف المفتاح {key_data['key_code']}")
+        
     flash("تم حذف المفتاح", "success")
     return redirect(url_for("keys_page"))
 
-# --- API التفعيل المطور ---
+# --- API التفعيل والمصادقة ---
 @app.route("/api/verify", methods=["GET", "POST"])
 def api_verify():
     if request.method == "POST":
@@ -312,6 +429,9 @@ def api_verify():
     if key_data.get("status") == "banned":
         return render_api_response("INVALID:BANNED", 403)
 
+    if key_data.get("is_frozen") == 1 or key_data.get("status") == "frozen":
+        return render_api_response("INVALID:FROZEN", 403)
+
     now = datetime.now()
 
     if key_data.get("expires_at"):
@@ -346,6 +466,9 @@ def api_verify():
     else:
         exp_date = datetime.strptime(str(key_data["expires_at"])[:19], "%Y-%m-%d %H:%M:%S")
         days_left = max(0, (exp_date - now).days)
+
+    # تسجيل حركة دخول الزبون مع تفاصيل الكي والـ HWID
+    log_action("استخدام مفتاح", f"زبون استخدم المفتاح {key_code} من جهاز HWID ({hwid})")
 
     secret_salt = "TWVX_SECRET_PROTECTION_2026"
     raw_sig = f"{key_code}:{hwid}:{secret_salt}"
