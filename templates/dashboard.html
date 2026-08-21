@@ -1,18 +1,18 @@
 {% extends "base.html" %}
 
-{% block title %}الرئيسية{% endblock %}
-{% block page_title %}نظرة عامة{% endblock %}
+{% block title %}لوحة التحكم الاحترافية{% endblock %}
+{% block page_title %}إدارة المفاتيح والأجهزة{% endblock %}
 
 {% block content %}
 <div class="fade-in">
 
-  <!-- Admin Bar & Logout -->
+  <!-- Admin Header Bar -->
   <div class="d-flex justify-content-between align-items-center bg-dark border border-secondary p-3 rounded mb-3 text-white">
     <div>
-      <span>👤 مرحباً الأدمن: <strong class="text-warning">{{ current_admin }}</strong></span>
+      <span class="fs-6">👤 أدمن الجلسة: <strong class="text-warning">{{ current_admin }}</strong></span>
     </div>
     <div>
-      <a href="/logout" class="btn btn-sm btn-outline-danger fw-bold">🚪 تسجيل الخروج (Logout)</a>
+      <a href="/logout" class="btn btn-sm btn-outline-danger fw-bold">🚪 خروج</a>
     </div>
   </div>
 
@@ -28,14 +28,14 @@
     {% endif %}
   {% endwith %}
 
-  <!-- Quick Key Generation Section -->
+  <!-- Key Generator Card -->
   <div class="card bg-dark text-white border-secondary mb-4">
     <div class="card-body">
-      <h5 class="card-title mb-3">🔑 إنشاء مفتاح وتحديد الصلاحية بالأيام</h5>
+      <h5 class="card-title mb-3">🔑 إنشاء مفاتيح جديدة مع تحديد عدد الأجهزة</h5>
       <form method="POST" action="/dashboard" class="row g-2 align-items-center">
         
-        <div class="col-auto">
-          <label class="form-label small text-muted mb-0">نوع المفتاح:</label>
+        <div class="col-md-2">
+          <label class="form-label small text-muted mb-0">النوع:</label>
           <select name="key_type" class="form-select bg-secondary text-white border-0">
             <option value="basic">عادي (Basic)</option>
             <option value="premium">مميز (Premium)</option>
@@ -43,101 +43,118 @@
           </select>
         </div>
 
-        <div class="col-auto">
-          <label class="form-label small text-muted mb-0">المدة (بالأيام):</label>
+        <div class="col-md-3">
+          <label class="form-label small text-muted mb-0">المدة:</label>
           <select name="duration_days" class="form-select bg-secondary text-white border-0">
-            <option value="1">1 يوم (تجريبي)</option>
-            <option value="7">7 أيام (أسبوع)</option>
+            <option value="1">1 يوم</option>
+            <option value="7">7 أيام</option>
             <option value="30" selected>30 يوم (شهر)</option>
-            <option value="90">90 يوم (3 أشهر)</option>
-            <option value="365">365 يوم (سنة)</option>
+            <option value="90">90 يوم</option>
+            <option value="365">365 يوم</option>
           </select>
         </div>
 
-        <div class="col-auto align-self-end">
-          <button type="submit" class="btn btn-success fw-bold">
-            ➕ إنشاء Key Code
+        <div class="col-md-3">
+          <label class="form-label small text-muted mb-0">💻 الأجهزة المسموحة/مفتاح:</label>
+          <select name="max_devices" class="form-select bg-secondary text-white border-0">
+            <option value="1" selected>جهاز واحد (1 PC)</option>
+            <option value="2">جهازين (2 PCs)</option>
+            <option value="3">3 أجهزة (3 PCs)</option>
+            <option value="5">5 أجهزة (5 PCs)</option>
+            <option value="10">10 أجهزة</option>
+          </select>
+        </div>
+
+        <div class="col-md-2">
+          <label class="form-label small text-muted mb-0">العدد المطلوبة:</label>
+          <input type="number" name="count" min="1" max="50" value="1" class="form-control bg-secondary text-white border-0">
+        </div>
+
+        <div class="col-md-2 align-self-end">
+          <button type="submit" class="btn btn-success fw-bold w-100">
+            ➕ توليد Key
           </button>
         </div>
       </form>
     </div>
   </div>
 
-  <!-- Stats Cards -->
+  <!-- Statistics -->
   <div class="row g-3 mb-4">
     <div class="col-md-3 col-6">
-      <div class="stat-card text-center p-3 bg-dark border border-secondary rounded">
-        <div class="stat-number h3 text-primary">{{ total_keys }}</div>
-        <div class="stat-label text-muted">إجمالي المفاتيح</div>
+      <div class="p-3 bg-dark border border-secondary rounded text-center">
+        <div class="h3 text-primary mb-0">{{ total_keys }}</div>
+        <div class="small text-muted">إجمالي المفاتيح</div>
       </div>
     </div>
     <div class="col-md-3 col-6">
-      <div class="stat-card text-center p-3 bg-dark border border-secondary rounded">
-        <div class="stat-number h3 text-warning">{{ used_keys }}</div>
-        <div class="stat-label text-muted">مفاتيح مفعلة</div>
+      <div class="p-3 bg-dark border border-secondary rounded text-center">
+        <div class="h3 text-warning mb-0">{{ used_keys }}</div>
+        <div class="small text-muted">مفاتيح نشطة</div>
       </div>
     </div>
     <div class="col-md-3 col-6">
-      <div class="stat-card text-center p-3 bg-dark border border-secondary rounded">
-        <div class="stat-number h3 text-success">{{ available_keys }}</div>
-        <div class="stat-label text-muted">متاحة للتفعيل</div>
+      <div class="p-3 bg-dark border border-secondary rounded text-center">
+        <div class="h3 text-success mb-0">{{ available_keys }}</div>
+        <div class="small text-muted">متاحة للبيع</div>
       </div>
     </div>
     <div class="col-md-3 col-6">
-      <div class="stat-card text-center p-3 bg-dark border border-secondary rounded">
-        <div class="stat-number h3 text-info">
-          {% if total_keys > 0 %}
-            {{ ((used_keys / total_keys * 100)|round|int) }}%
-          {% else %}
-            0%
-          {% endif %}
+      <div class="p-3 bg-dark border border-secondary rounded text-center">
+        <div class="h3 text-info mb-0">
+          {% if total_keys > 0 %}{{ ((used_keys / total_keys * 100)|round|int) }}%{% else %}0%{% endif %}
         </div>
-        <div class="stat-label text-muted">نسبة التفعيل</div>
+        <div class="small text-muted">نسبة التفعيل</div>
       </div>
     </div>
   </div>
 
-  <!-- Keys Table -->
-  <div class="card-custom bg-dark border border-secondary rounded p-3 text-white mb-4">
-    <div class="card-header fw-bold mb-3 border-bottom border-secondary pb-2">
-      <i class="fa fa-history"></i> قائمة المفاتيح وحالتها
+  <!-- Keys Management Table -->
+  <div class="card bg-dark border-secondary text-white mb-4">
+    <div class="card-header border-secondary d-flex justify-content-between align-items-center">
+      <span class="fw-bold">📋 قائمة المفاتيح والأجهزة</span>
+      <input type="text" id="searchInput" onkeyup="filterTable()" class="form-control form-control-sm w-25 bg-secondary text-white border-0" placeholder="🔍 بحث...">
     </div>
     <div class="card-body p-0">
       <div class="table-responsive">
-        <table class="table table-dark table-hover mb-0 text-center align-middle">
+        <table class="table table-dark table-hover mb-0 text-center align-middle" id="keysTable">
           <thead>
             <tr>
               <th>المفتاح</th>
               <th>النوع</th>
-              <th>المدة</th>
               <th>الحالة</th>
               <th>تاريخ الانتهاء</th>
+              <th>💻 الأجهزة (المسجلة / المسموحة)</th>
               <th>الإجراءات</th>
             </tr>
           </thead>
           <tbody>
             {% for key in recent_keys %}
             <tr>
-              <td><code>{{ key.key }}</code></td>
+              <td>
+                <code>{{ key.key }}</code>
+                <button class="btn btn-sm btn-link text-info p-0 ms-1" onclick="copyToClipboard('{{ key.key }}')" title="نسخ المفتاح">📋</button>
+              </td>
               <td>
                 {% if key.key_type == 'vip' %}
                   <span class="badge bg-danger">VIP</span>
                 {% elif key.key_type == 'premium' %}
-                  <span class="badge bg-warning text-dark">مميز</span>
+                  <span class="badge bg-warning text-dark">Premium</span>
                 {% else %}
-                  <span class="badge bg-secondary">عادي</span>
+                  <span class="badge bg-secondary">Basic</span>
                 {% endif %}
               </td>
-              <td><span class="badge bg-info">{{ key.duration_days }} يوم</span></td>
               <td>
-                {% if key.status == 'paused' %}
+                {% if key.status == 'banned' %}
+                  <span class="badge bg-danger">محظور 🚫</span>
+                {% elif key.status == 'paused' %}
                   <span class="badge bg-warning text-dark">مجمد ⏸️</span>
                 {% elif key.status == 'expired' %}
                   <span class="badge bg-secondary">منتهي ❌</span>
                 {% elif key.activated_at %}
-                  <span class="badge bg-success">نشط (مفعل) ✅</span>
+                  <span class="badge bg-success">نشط ✅</span>
                 {% else %}
-                  <span class="badge bg-primary">غير مفعل بعد ⏳</span>
+                  <span class="badge bg-primary">جديد ⏳</span>
                 {% endif %}
               </td>
               <td>
@@ -148,71 +165,61 @@
                 {% endif %}
               </td>
               <td>
-                {% if key.status == 'paused' %}
-                  <a href="/unpause/{{ key.id }}" class="btn btn-sm btn-outline-success me-1">تشغيل ▶️</a>
-                {% elif key.status == 'active' %}
-                  <a href="/pause/{{ key.id }}" class="btn btn-sm btn-outline-warning me-1">تجميد ⏸️</a>
+                <span class="badge bg-info">{{ key.hwid_count }} / {{ key.max_devices }} جهاز</span>
+                {% if key.hwid_count > 0 %}
+                  <a href="/reset_hwid/{{ key.id }}" class="btn btn-sm btn-outline-info py-0 px-1 ms-1" title="مسح كل الأجهزة">🔄 مسح الأجهزة</a>
                 {% endif %}
-                <a href="/delete/{{ key.id }}" class="btn btn-sm btn-outline-danger" onclick="return confirm('هل أنت تأكد من الحذف؟')">حذف</a>
+              </td>
+              <td>
+                {% if key.status == 'paused' %}
+                  <a href="/unpause/{{ key.id }}" class="btn btn-sm btn-outline-success">تشغيل ▶️</a>
+                {% elif key.status == 'active' %}
+                  <a href="/pause/{{ key.id }}" class="btn btn-sm btn-outline-warning">تجميد ⏸️</a>
+                {% endif %}
+
+                {% if key.status != 'banned' %}
+                  <a href="/ban/{{ key.id }}" class="btn btn-sm btn-outline-secondary" onclick="return confirm('حظر هذا المفتاح؟')">حظر 🚫</a>
+                {% endif %}
+
+                <a href="/delete/{{ key.id }}" class="btn btn-sm btn-outline-danger" onclick="return confirm('حذف نهائي؟')">حذف</a>
               </td>
             </tr>
             {% else %}
             <tr>
-              <td colspan="6" class="text-muted py-3">لا توجد مفاتيح. استخدم القائمة العلوية لإنشاء مفتاح.</td>
+              <td colspan="6" class="text-muted py-3">لا توجد مفاتيح حالياً.</td>
             </tr>
             {% endfor %}
           </tbody>
         </table>
       </div>
-    </div>
-  </div>
-
-  <!-- Admin Management Section -->
-  <div class="card bg-dark text-white border-secondary mb-4">
-    <div class="card-body">
-      <h5 class="card-title mb-3">👤 إضافة أدمن جديد (Add Admin)</h5>
-      <form method="POST" action="/add_admin" class="row g-2 align-items-center">
-        <div class="col-auto">
-          <input type="text" name="new_username" class="form-control bg-secondary text-white border-0" placeholder="اسم المستخدم" required>
-        </div>
-        <div class="col-auto">
-          <input type="password" name="new_password" class="form-control bg-secondary text-white border-0" placeholder="كلمة المرور" required>
-        </div>
-        <div class="col-auto">
-          <button type="submit" class="btn btn-primary fw-bold">
-            ➕ إضافة الأدمن
-          </button>
-        </div>
-      </form>
-
-      {% if admins %}
-      <hr class="border-secondary my-3">
-      <h6 class="text-muted mb-2">قائمة الأدمنية المضافين:</h6>
-      <div class="table-responsive">
-        <table class="table table-dark table-sm table-hover text-center align-middle">
-          <thead>
-            <tr>
-              <th>اسم المستخدم</th>
-              <th>كلمة المرور</th>
-              <th>الإجراءات</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for adm in admins %}
-            <tr>
-              <td><code>{{ adm.username }}</code></td>
-              <td><code>{{ adm.password }}</code></td>
-              <td>
-                <a href="/delete_admin/{{ adm.id }}" class="btn btn-sm btn-outline-danger" onclick="return confirm('حذف هذا الأدمن؟')">حذف</a>
-              </td>
-            </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      </div>
-      {% endif %}
     </div>
   </div>
 
 </div>
+
+<script>
+function copyToClipboard(text) {
+  navigator.clipboard.writeText(text);
+  alert("تم نسخ المفتاح: " + text);
+}
+
+function filterTable() {
+  var input = document.getElementById("searchInput");
+  var filter = input.value.toUpperCase();
+  var table = document.getElementById("keysTable");
+  var tr = table.getElementsByTagName("tr");
+
+  for (var i = 1; i < tr.length; i++) {
+    var tdKey = tr[i].getElementsByTagName("td")[0];
+    if (tdKey) {
+      var txtValue = tdKey.textContent || tdKey.innerText;
+      if (txtValue.toUpperCase().indexOf(filter) > -1) {
+        tr[i].style.display = "";
+      } else {
+        tr[i].style.display = "none";
+      }
+    }
+  }
+}
+</script>
 {% endblock %}
