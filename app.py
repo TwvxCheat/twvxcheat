@@ -1,93 +1,121 @@
 import os
 import secrets
+import sqlite3
 import pymysql
 from datetime import datetime, timedelta
 from flask import Flask, render_template, request, redirect, session, jsonify, flash, url_for
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "twvx_cheat_secret_key_12345")
+DB_FILE = "twvx_db.db"
 
-# --- الاتصال بقاعدة البيانات ---
-def connect_db():
-    try:
-        conn = pymysql.connect(
-            host=os.environ.get("DB_HOST", "localhost"),
-            user=os.environ.get("DB_USER", "root"),
-            password=os.environ.get("DB_PASSWORD", ""),
-            database=os.environ.get("DB_NAME", "twvx_db"),
-            port=int(os.environ.get("DB_PORT", 3306)),
-            autocommit=True,
-            cursorclass=pymysql.cursors.DictCursor
-        )
-        return conn, None
-    except Exception as e:
-        return None, str(e)
-
-# --- تهيئة وتحديث قاعدة البيانات تلقائياً ---
-def init_db():
-    conn, err = connect_db()
-    if conn:
+# --- نظام الاتصال المزدوج (MySQL / SQLite Fallback) ---
+def get_db():
+    if os.environ.get("DB_HOST"):
         try:
-            with conn.cursor() as cur:
-                cur.execute("""
-                    CREATE TABLE IF NOT EXISTS `keys` (
-                        `id` INT AUTO_INCREMENT PRIMARY KEY,
-                        `key_code` VARCHAR(255) UNIQUE NOT NULL,
-                        `key_type` VARCHAR(50) DEFAULT 'basic',
-                        `status` VARCHAR(50) DEFAULT 'active',
-                        `used_by` VARCHAR(255) DEFAULT '-',
-                        `duration_days` INT DEFAULT 30,
-                        `max_devices` INT DEFAULT 1,
-                        `hwid` TEXT DEFAULT NULL,
-                        `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                        `activated_at` DATETIME DEFAULT NULL,
-                        `expires_at` DATETIME DEFAULT NULL
-                    );
-                """)
-                
-                cols = [
-                    ("key_type", "VARCHAR(50) DEFAULT 'basic'"),
-                    ("used_by", "VARCHAR(255) DEFAULT '-'"),
-                    ("duration_days", "INT DEFAULT 30"),
-                    ("max_devices", "INT DEFAULT 1"),
-                    ("activated_at", "DATETIME DEFAULT NULL"),
-                    ("expires_at", "DATETIME DEFAULT NULL")
-                ]
-                for col_name, col_type in cols:
-                    try:
-                        cur.execute(f"ALTER TABLE `keys` ADD COLUMN `{col_name}` {col_type};")
-                    except Exception:
-                        pass
+            conn = pymysql.connect(
+                host=os.environ.get("DB_HOST"),
+                user=os.environ.get("DB_USER", "root"),
+                password=os.environ.get("DB_PASSWORD", ""),
+                database=os.environ.get("DB_NAME", "twvx_db"),
+                port=int(os.environ.get("DB_PORT", 3306)),
+                autocommit=True,
+                cursorclass=pymysql.cursors.DictCursor
+            )
+            return conn, "mysql"
+        except Exception:
+            pass
 
-                try:
-                    cur.execute("ALTER TABLE `keys` ADD COLUMN `hwid` TEXT DEFAULT NULL;")
-                except Exception:
-                    try:
-                        cur.execute("ALTER TABLE `keys` MODIFY COLUMN `hwid` TEXT DEFAULT NULL;")
-                    except Exception:
-                        pass
+    conn = sqlite3.connect(DB_FILE)
+    conn.row_factory = sqlite3.Row
+    return conn, "sqlite"
 
-                cur.execute("""
-                    CREATE TABLE IF NOT EXISTS `admins` (
-                        `id` INT AUTO_INCREMENT PRIMARY KEY,
-                        `username` VARCHAR(100) UNIQUE NOT NULL,
-                        `password` VARCHAR(255) NOT NULL,
-                        `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                    );
-                """)
-                
-                cur.execute("DELETE FROM admins;")
-                cur.execute("INSERT INTO admins (username, password) VALUES (%s, %s);", ("TwvxCheat", "Twvx1"))
-            conn.close()
-        except Exception as e:
-            print("DB Init Error:", e)
+def query_db(query, args=(), fetchone=False, commit=False):
+    conn, db_type = get_db()
+    cursor = conn.cursor()
+    
+    if db_type == "sqlite":
+        query = query.replace("%s", "?")
+        
+    cursor.execute(query, args)
+    
+    if commit:
+        if db_type == "sqlite":
+            conn.commit()
+        conn.close()
+        return None
+        
+    if fetchone:
+        row = cursor.fetchone()
+        conn.close()
+        return dict(row) if row else None
+    else:
+        rows = cursor.fetchall()
+        conn.close()
+        return [dict(r) for r in rows]
+
+# --- تهيئة الجداول ---
+def init_db():
+    conn, db_type = get_db()
+    cursor = conn.cursor()
+    
+    if db_type == "sqlite":
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS keys (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                key_code TEXT UNIQUE NOT NULL,
+                key_type TEXT DEFAULT 'basic',
+                status TEXT DEFAULT 'active',
+                used_by TEXT DEFAULT '-',
+                duration_days INTEGER DEFAULT 30,
+                max_devices INTEGER DEFAULT 1,
+                hwid TEXT DEFAULT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                activated_at DATETIME DEFAULT NULL,
+                expires_at DATETIME DEFAULT NULL
+            );
+        """)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS admins (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                username TEXT UNIQUE NOT NULL,
+                password TEXT NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+        """)
+        conn.commit()
+    else:
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS `keys` (
+                `id` INT AUTO_INCREMENT PRIMARY KEY,
+                `key_code` VARCHAR(255) UNIQUE NOT NULL,
+                `key_type` VARCHAR(50) DEFAULT 'basic',
+                `status` VARCHAR(50) DEFAULT 'active',
+                `used_by` VARCHAR(255) DEFAULT '-',
+                `duration_days` INT DEFAULT 30,
+                `max_devices` INT DEFAULT 1,
+                `hwid` TEXT DEFAULT NULL,
+                `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                `activated_at` DATETIME DEFAULT NULL,
+                `expires_at` DATETIME DEFAULT NULL
+            );
+        """)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS `admins` (
+                `id` INT AUTO_INCREMENT PRIMARY KEY,
+                `username` VARCHAR(100) UNIQUE NOT NULL,
+                `password` VARCHAR(255) NOT NULL,
+                `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+        """)
+    conn.close()
 
 init_db()
 
 def check_admin():
     return session.get("logged_in") is True
 
-# --- المسارات (Routes) ---
+# --- المسارات ---
 
 @app.route("/")
 def index():
@@ -106,17 +134,6 @@ def login():
             session["username"] = username
             return redirect(url_for("dashboard"))
             
-        conn, _ = connect_db()
-        if conn:
-            with conn.cursor() as cur:
-                cur.execute("SELECT * FROM admins WHERE username=%s AND password=%s", (username, password))
-                admin = cur.fetchone()
-            conn.close()
-            if admin:
-                session["logged_in"] = True
-                session["username"] = username
-                return redirect(url_for("dashboard"))
-                
         flash("اسم المستخدم أو كلمة المرور غير صحيحة", "danger")
     return render_template("login.html")
 
@@ -132,13 +149,7 @@ def dashboard():
     if not check_admin():
         return redirect(url_for("login"))
     
-    conn, err = connect_db()
-    keys_list = []
-    if conn:
-        with conn.cursor() as cur:
-            cur.execute("SELECT * FROM `keys` ORDER BY id DESC")
-            keys_list = cur.fetchall()
-        conn.close()
+    keys_list = query_db("SELECT * FROM keys ORDER BY id DESC") or []
     
     total_keys = len(keys_list)
     active_keys = sum(1 for k in keys_list if k.get("status") == "active")
@@ -159,53 +170,24 @@ def dashboard():
 @app.route("/generate_key", methods=["GET", "POST"])
 def generate_key():
     if not check_admin():
-        if request.is_json or request.headers.get("X-Requested-With") == "XMLHttpRequest":
-            return jsonify({"success": False, "message": "غير مصرح"}), 403
         return redirect(url_for("login"))
     
     if request.method == "POST":
         try:
-            # قراءة البيانات سواء كانت Form عادي أو JSON/AJAX
-            if request.is_json:
-                data = request.get_json() or {}
-            else:
-                data = request.form or {}
-            
-            key_type = data.get("key_type", "basic") or "basic"
-            
-            raw_duration = data.get("duration_days", "30")
-            duration_days = int(raw_duration) if str(raw_duration).isdigit() else 30
-            
-            raw_devices = data.get("max_devices", "1")
-            max_devices = int(raw_devices) if str(raw_devices).isdigit() else 1
+            key_type = request.form.get("key_type", "basic") or "basic"
+            duration_days = int(request.form.get("duration_days", 30))
+            max_devices = int(request.form.get("max_devices", 1))
             
             key_code = f"TWVX-{key_type.upper()}-" + secrets.token_hex(4).upper()
             
-            conn, err = connect_db()
-            if conn:
-                with conn.cursor() as cur:
-                    cur.execute("""
-                        INSERT INTO `keys` (key_code, key_type, duration_days, max_devices, status)
-                        VALUES (%s, %s, %s, %s, 'active')
-                    """, (key_code, key_type, duration_days, max_devices))
-                conn.close()
-                
-                # الرد بحسب طريقة التوليد (AJAX أو Form)
-                if request.is_json or request.headers.get("X-Requested-With") == "XMLHttpRequest":
-                    return jsonify({"success": True, "message": "تم توليد المفتاح بنجاح!", "key": key_code})
-                
-                flash("تم توليد المفتاح بنجاح!", "success")
-                return redirect(url_for("keys_page"))
-            else:
-                msg = f"خطأ في الاتصال بقاعدة البيانات: {err}"
-                if request.is_json or request.headers.get("X-Requested-With") == "XMLHttpRequest":
-                    return jsonify({"success": False, "message": msg}), 500
-                flash(msg, "danger")
+            query_db(
+                "INSERT INTO keys (key_code, key_type, duration_days, max_devices, status) VALUES (%s, %s, %s, %s, 'active')",
+                (key_code, key_type, duration_days, max_devices),
+                commit=True
+            )
+            flash("تم توليد المفتاح بنجاح!", "success")
         except Exception as e:
-            msg = f"حدث خطأ أثناء الإنشاء: {str(e)}"
-            if request.is_json or request.headers.get("X-Requested-With") == "XMLHttpRequest":
-                return jsonify({"success": False, "message": msg}), 500
-            flash(msg, "danger")
+            flash(f"خطأ أثناء التوليد: {str(e)}", "danger")
             
     return redirect(url_for("keys_page"))
 
@@ -213,27 +195,19 @@ def generate_key():
 def reset_hwid(key_id):
     if not check_admin():
         return redirect(url_for("login"))
-    conn, _ = connect_db()
-    if conn:
-        with conn.cursor() as cur:
-            cur.execute("UPDATE `keys` SET hwid=NULL WHERE id=%s", (key_id,))
-        conn.close()
-        flash("تم مسح الأجهزة المسجلة للمفتاح بنجاح", "success")
+    query_db("UPDATE keys SET hwid=NULL WHERE id=%s", (key_id,), commit=True)
+    flash("تم مسح الأجهزة المسجلة للمفتاح", "success")
     return redirect(url_for("keys_page"))
 
 @app.route("/delete_key/<int:key_id>", methods=["GET", "POST"])
 def delete_key(key_id):
     if not check_admin():
         return redirect(url_for("login"))
-    conn, _ = connect_db()
-    if conn:
-        with conn.cursor() as cur:
-            cur.execute("DELETE FROM `keys` WHERE id=%s", (key_id,))
-        conn.close()
-        flash("تم حذف المفتاح", "success")
+    query_db("DELETE FROM keys WHERE id=%s", (key_id,), commit=True)
+    flash("تم حذف المفتاح", "success")
     return redirect(url_for("keys_page"))
 
-# --- API للتحقق من الكي من داخل اللعبة / البرنامج ---
+# --- API للتحقق من الكي ---
 @app.route("/api/verify", methods=["POST"])
 def api_verify():
     data = request.get_json() or {}
@@ -243,50 +217,38 @@ def api_verify():
     if not key_code or not hwid:
         return jsonify({"status": "error", "message": "المفتاح وبصمة الجهاز مطلوبة"}), 400
         
-    conn, _ = connect_db()
-    if not conn:
-        return jsonify({"status": "error", "message": "خطأ في السيرفر"}), 500
+    key_data = query_db("SELECT * FROM keys WHERE key_code=%s", (key_code,), fetchone=True)
+    if not key_data:
+        return jsonify({"status": "error", "message": "المفتاح غير موجود"}), 404
         
-    with conn.cursor() as cur:
-        cur.execute("SELECT * FROM `keys` WHERE key_code=%s", (key_code,))
-        key_data = cur.fetchone()
+    if key_data["status"] == "banned":
+        return jsonify({"status": "error", "message": "هذا المفتاح محظور"}), 403
         
-        if not key_data:
-            conn.close()
-            return jsonify({"status": "error", "message": "المفتاح غير موجود"}), 404
-            
-        if key_data["status"] == "banned":
-            conn.close()
-            return jsonify({"status": "error", "message": "هذا المفتاح محظور"}), 403
-            
-        now = datetime.now()
-        if key_data["expires_at"] and now > key_data["expires_at"]:
-            cur.execute("UPDATE `keys` SET status='expired' WHERE id=%s", (key_data["id"],))
-            conn.close()
-            return jsonify({"status": "error", "message": "المفتاح منتهي الصلاحية"}), 403
-            
-        registered_hwids = key_data["hwid"].split(",") if key_data["hwid"] else []
-        max_devices = key_data.get("max_devices", 1)
+    now = datetime.now()
+    if key_data["expires_at"] and now > datetime.strptime(str(key_data["expires_at"])[:19], "%Y-%m-%d %H:%M:%S"):
+        query_db("UPDATE keys SET status='expired' WHERE id=%s", (key_data["id"],), commit=True)
+        return jsonify({"status": "error", "message": "المفتاح منتهي الصلاحية"}), 403
         
-        if hwid not in registered_hwids:
-            if len(registered_hwids) >= max_devices:
-                conn.close()
-                return jsonify({"status": "error", "message": "MAX_DEVICES_REACHED"}), 403
-            
-            registered_hwids.append(hwid)
-            new_hwid_str = ",".join(registered_hwids)
-            
-            if not key_data["activated_at"]:
-                expires_at = now + timedelta(days=key_data["duration_days"])
-                cur.execute("""
-                    UPDATE `keys` 
-                    SET hwid=%s, activated_at=%s, expires_at=%s 
-                    WHERE id=%s
-                """, (new_hwid_str, now, expires_at, key_data["id"]))
-            else:
-                cur.execute("UPDATE `keys` SET hwid=%s WHERE id=%s", (new_hwid_str, key_data["id"]))
+    registered_hwids = key_data["hwid"].split(",") if key_data["hwid"] else []
+    max_devices = key_data.get("max_devices", 1)
+    
+    if hwid not in registered_hwids:
+        if len(registered_hwids) >= max_devices:
+            return jsonify({"status": "error", "message": "MAX_DEVICES_REACHED"}), 403
+        
+        registered_hwids.append(hwid)
+        new_hwid_str = ",".join(registered_hwids)
+        
+        if not key_data["activated_at"]:
+            expires_at = now + timedelta(days=key_data["duration_days"])
+            query_db(
+                "UPDATE keys SET hwid=%s, activated_at=%s, expires_at=%s WHERE id=%s",
+                (new_hwid_str, now.strftime("%Y-%m-%d %H:%M:%S"), expires_at.strftime("%Y-%m-%d %H:%M:%S"), key_data["id"]),
+                commit=True
+            )
+        else:
+            query_db("UPDATE keys SET hwid=%s WHERE id=%s", (new_hwid_str, key_data["id"]), commit=True)
 
-    conn.close()
     return jsonify({
         "status": "success",
         "message": "تم التفعيل بنجاح",
