@@ -5,6 +5,7 @@ import string
 import pymysql
 import ssl
 import traceback
+import datetime
 from urllib.parse import urlparse, unquote
 
 app = Flask(__name__)
@@ -18,7 +19,7 @@ ADMIN_PASS = "Twvx1"
 
 # ================= KEY CLASS =================
 class KeyModel:
-    def __init__(self, id, key_code, key_type='basic', status='active', used_by='-', created_at=''):
+    def __init__(self, id, key_code, key_type='basic', status='active', used_by='-', created_at='', duration_days=30, activated_at=None, expires_at=None):
         self.id = id
         self.key_code = key_code
         self.key = key_code
@@ -26,10 +27,13 @@ class KeyModel:
         self.status = status or 'active'
         self.used_by = used_by or '-'
         self.created_at = created_at
+        self.duration_days = duration_days or 30
+        self.activated_at = activated_at
+        self.expires_at = expires_at
 
     def __getitem__(self, item):
         if isinstance(item, int):
-            arr = [self.id, self.key_code, self.key_type, self.status, self.used_by, self.created_at]
+            arr = [self.id, self.key_code, self.key_type, self.status, self.used_by, self.created_at, self.duration_days, self.activated_at, self.expires_at]
             return arr[item] if item < len(arr) else ""
         return getattr(self, str(item), "")
 
@@ -63,7 +67,7 @@ def connect_db():
     except Exception as e:
         return None, str(e)
 
-# ================= INIT DB =================
+# ================= INIT & MIGRATE DB =================
 def init_db():
     conn, err = connect_db()
     if conn:
@@ -79,7 +83,10 @@ def init_db():
                 """)
                 columns_to_add = [
                     ('key_type', "VARCHAR(50) DEFAULT 'basic'"),
-                    ('used_by', "VARCHAR(255) DEFAULT '-'")
+                    ('used_by', "VARCHAR(255) DEFAULT '-'"),
+                    ('duration_days', "INT DEFAULT 30"),
+                    ('activated_at', "DATETIME DEFAULT NULL"),
+                    ('expires_at', "DATETIME DEFAULT NULL")
                 ]
                 for col_name, col_type in columns_to_add:
                     try:
@@ -131,7 +138,6 @@ def logout():
     session.clear()
     return redirect("/login")
 
-# ربط كافة الأسماء المحتملة التي قد يستدعيها base.html
 @app.route("/dashboard", methods=["GET", "POST"], endpoint="dashboard")
 @app.route("/keys", methods=["GET", "POST"], endpoint="keys")
 @app.route("/keys_page", methods=["GET", "POST"], endpoint="keys_page")
@@ -139,19 +145,25 @@ def dashboard():
     if not check_admin():
         return redirect("/login")
     
+    # إنشاء مفتاح جديد مع تحديد عدد الأيام
     if request.method == "POST":
         key_type = request.form.get("key_type", "basic")
+        try:
+            duration_days = int(request.form.get("duration_days", 30))
+        except ValueError:
+            duration_days = 30
+
         new_key = "TWVX-" + ''.join(random.choices(string.ascii_uppercase + string.digits, k=10))
         conn, err = connect_db()
         if conn:
             try:
                 with conn.cursor() as cur:
-                    try:
-                        cur.execute("INSERT INTO `keys` (`key_code`, `key_type`, `status`) VALUES (%s, %s, %s)", (new_key, key_type, 'active'))
-                    except Exception:
-                        cur.execute("INSERT INTO `keys` (`key_code`, `status`) VALUES (%s, %s)", (new_key, 'active'))
+                    cur.execute(
+                        "INSERT INTO `keys` (`key_code`, `key_type`, `duration_days`, `status`) VALUES (%s, %s, %s, %s)",
+                        (new_key, key_type, duration_days, 'active')
+                    )
                 conn.close()
-                flash(f"تم إنشاء المفتاح بنجاح: {new_key}", "success")
+                flash(f"تم إنشاء مفتاح لمدة ({duration_days} يوم) بنجاح: {new_key}", "success")
             except Exception as e:
                 flash(f"خطأ أثناء إنشاء المفتاح: {e}", "danger")
         return redirect("/dashboard")
@@ -161,22 +173,16 @@ def dashboard():
     if conn:
         try:
             with conn.cursor() as cur:
-                try:
-                    cur.execute("SELECT id, key_code, key_type, status, used_by, created_at FROM `keys` ORDER BY id DESC")
-                    rows = cur.fetchall()
-                    for r in rows:
-                        keys_list.append(KeyModel(r[0], r[1], r[2], r[3], r[4], r[5]))
-                except Exception:
-                    cur.execute("SELECT id, key_code, status, created_at FROM `keys` ORDER BY id DESC")
-                    rows = cur.fetchall()
-                    for r in rows:
-                        keys_list.append(KeyModel(r[0], r[1], 'basic', r[2], '-', r[3]))
+                cur.execute("SELECT id, key_code, key_type, status, used_by, created_at, duration_days, activated_at, expires_at FROM `keys` ORDER BY id DESC")
+                rows = cur.fetchall()
+                for r in rows:
+                    keys_list.append(KeyModel(r[0], r[1], r[2], r[3], r[4], r[5], r[6], r[7], r[8]))
             conn.close()
         except Exception as e:
             flash(f"خطأ جلب البيانات: {e}", "danger")
 
     total_keys = len(keys_list)
-    used_keys = sum(1 for k in keys_list if str(k.status).lower() not in ['active', 'valid'])
+    used_keys = sum(1 for k in keys_list if k.activated_at is not None)
     available_keys = total_keys - used_keys
 
     return render_template(
@@ -210,24 +216,53 @@ def delete_key(key_id=None):
             flash(f"خطأ الحذف: {e}", "danger")
     return redirect("/dashboard")
 
-@app.route("/search", endpoint="search")
-def search():
-    return redirect("/dashboard")
-
+# ================= API VERIFY =================
 @app.route("/verify", methods=["GET", "POST"], endpoint="verify")
 def verify():
     key = request.args.get("key") or request.form.get("key", "")
     if not key:
         return "INVALID", 200, {'Content-Type': 'text/plain'}
+
     conn, err = connect_db()
     if err or not conn:
         return "ERROR", 200, {'Content-Type': 'text/plain'}
+
     try:
         with conn.cursor() as cur:
-            cur.execute("SELECT `status` FROM `keys` WHERE `key_code` = %s AND `status` = 'active'", (key,))
-            result = cur.fetchone()
-        conn.close()
-        return "VALID" if result else "INVALID", 200, {'Content-Type': 'text/plain'}
+            cur.execute("SELECT id, status, duration_days, activated_at, expires_at FROM `keys` WHERE `key_code` = %s", (key,))
+            row = cur.fetchone()
+
+            if not row:
+                conn.close()
+                return "INVALID", 200, {'Content-Type': 'text/plain'}
+
+            key_id, status, duration_days, activated_at, expires_at = row
+
+            if status == 'expired':
+                conn.close()
+                return "EXPIRED", 200, {'Content-Type': 'text/plain'}
+
+            now = datetime.datetime.now()
+
+            # التفعيل لأول مرة: بدء حساب الأيام
+            if activated_at is None:
+                duration = duration_days if duration_days else 30
+                exp_date = now + datetime.timedelta(days=duration)
+                cur.execute(
+                    "UPDATE `keys` SET `activated_at` = %s, `expires_at` = %s, `status` = 'active' WHERE id = %s",
+                    (now, exp_date, key_id)
+                )
+                conn.close()
+                return "VALID", 200, {'Content-Type': 'text/plain'}
+
+            # مفتاح تم تفعيله سابقاً - التحقق من الصلاحية
+            if expires_at and now > expires_at:
+                cur.execute("UPDATE `keys` SET `status` = 'expired' WHERE id = %s", (key_id,))
+                conn.close()
+                return "EXPIRED", 200, {'Content-Type': 'text/plain'}
+
+            conn.close()
+            return "VALID", 200, {'Content-Type': 'text/plain'}
     except Exception:
         return "ERROR", 200, {'Content-Type': 'text/plain'}
 
