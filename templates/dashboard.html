@@ -6,6 +6,16 @@
 {% block content %}
 <div class="fade-in">
 
+  <!-- Admin Bar & Logout -->
+  <div class="d-flex justify-content-between align-items-center bg-dark border border-secondary p-3 rounded mb-3 text-white">
+    <div>
+      <span>👤 مرحباً الأدمن: <strong class="text-warning">{{ current_admin }}</strong></span>
+    </div>
+    <div>
+      <a href="/logout" class="btn btn-sm btn-outline-danger fw-bold">🚪 تسجيل الخروج (Logout)</a>
+    </div>
+  </div>
+
   <!-- Flash Messages -->
   {% with messages = get_flashed_messages(with_categories=true) %}
     {% if messages %}
@@ -88,7 +98,7 @@
   </div>
 
   <!-- Keys Table -->
-  <div class="card-custom bg-dark border border-secondary rounded p-3 text-white">
+  <div class="card-custom bg-dark border border-secondary rounded p-3 text-white mb-4">
     <div class="card-header fw-bold mb-3 border-bottom border-secondary pb-2">
       <i class="fa fa-history"></i> قائمة المفاتيح وحالتها
     </div>
@@ -120,22 +130,29 @@
               </td>
               <td><span class="badge bg-info">{{ key.duration_days }} يوم</span></td>
               <td>
-                {% if key.status == 'expired' %}
-                  <span class="badge bg-secondary">منتهي</span>
+                {% if key.status == 'paused' %}
+                  <span class="badge bg-warning text-dark">مجمد ⏸️</span>
+                {% elif key.status == 'expired' %}
+                  <span class="badge bg-secondary">منتهي ❌</span>
                 {% elif key.activated_at %}
-                  <span class="badge bg-success">نشط (مفعل)</span>
+                  <span class="badge bg-success">نشط (مفعل) ✅</span>
                 {% else %}
-                  <span class="badge bg-primary">غير مفعل بعد</span>
-                {% endif %}
-              </td>
-              <td class="small text-muted">
-                {% if key.expires_at %}
-                  {{ key.expires_at.strftime('%Y-%m-%d %H:%M') }}
-                {% else %}
-                  لم يبدأ بعد
+                  <span class="badge bg-primary">غير مفعل بعد ⏳</span>
                 {% endif %}
               </td>
               <td>
+                {% if key.expires_at %}
+                  <span class="text-info small fw-bold">{{ key.expires_at.strftime('%Y-%m-%d %H:%M') }}</span>
+                {% else %}
+                  <span class="text-warning fw-bold small">⏳ لم يبدأ بعد</span>
+                {% endif %}
+              </td>
+              <td>
+                {% if key.status == 'paused' %}
+                  <a href="/unpause/{{ key.id }}" class="btn btn-sm btn-outline-success me-1">تشغيل ▶️</a>
+                {% elif key.status == 'active' %}
+                  <a href="/pause/{{ key.id }}" class="btn btn-sm btn-outline-warning me-1">تجميد ⏸️</a>
+                {% endif %}
                 <a href="/delete/{{ key.id }}" class="btn btn-sm btn-outline-danger" onclick="return confirm('هل أنت تأكد من الحذف؟')">حذف</a>
               </td>
             </tr>
@@ -147,6 +164,53 @@
           </tbody>
         </table>
       </div>
+    </div>
+  </div>
+
+  <!-- Admin Management Section -->
+  <div class="card bg-dark text-white border-secondary mb-4">
+    <div class="card-body">
+      <h5 class="card-title mb-3">👤 إضافة أدمن جديد (Add Admin)</h5>
+      <form method="POST" action="/add_admin" class="row g-2 align-items-center">
+        <div class="col-auto">
+          <input type="text" name="new_username" class="form-control bg-secondary text-white border-0" placeholder="اسم المستخدم" required>
+        </div>
+        <div class="col-auto">
+          <input type="password" name="new_password" class="form-control bg-secondary text-white border-0" placeholder="كلمة المرور" required>
+        </div>
+        <div class="col-auto">
+          <button type="submit" class="btn btn-primary fw-bold">
+            ➕ إضافة الأدمن
+          </button>
+        </div>
+      </form>
+
+      {% if admins %}
+      <hr class="border-secondary my-3">
+      <h6 class="text-muted mb-2">قائمة الأدمنية المضافين:</h6>
+      <div class="table-responsive">
+        <table class="table table-dark table-sm table-hover text-center align-middle">
+          <thead>
+            <tr>
+              <th>اسم المستخدم</th>
+              <th>كلمة المرور</th>
+              <th>الإجراءات</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for adm in admins %}
+            <tr>
+              <td><code>{{ adm.username }}</code></td>
+              <td><code>{{ adm.password }}</code></td>
+              <td>
+                <a href="/delete_admin/{{ adm.id }}" class="btn btn-sm btn-outline-danger" onclick="return confirm('حذف هذا الأدمن؟')">حذف</a>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% endif %}
     </div>
   </div>
 
