@@ -111,7 +111,6 @@
         }
         .copy-btn:hover { background: var(--accent-cyan); color: #000 !important; }
 
-        /* Scrollbar customization */
         ::-webkit-scrollbar { width: 6px; height: 6px; }
         ::-webkit-scrollbar-track { background: #030712; }
         ::-webkit-scrollbar-thumb { background: #374151; border-radius: 4px; }
@@ -121,7 +120,7 @@
 
     <div class="container-fluid max-width-xl">
         
-        <!-- الهيدر الرئيسي -->
+        <!-- الهيدر -->
         <div class="d-flex justify-content-between align-items-center mb-4 p-3 glass-card">
             <div class="d-flex align-items-center gap-3">
                 <div class="p-2 bg-dark rounded-3 border border-warning">
@@ -312,17 +311,14 @@
                                     </td>
                                     <td>
                                         <div class="d-flex gap-1">
-                                            <!-- زر التجميد / فك التجميد -->
                                             <form action="/freeze_key/{{ key.id }}" method="POST" class="d-inline">
                                                 <button type="submit" class="btn btn-{{ 'info' if key.is_frozen else 'warning' }} btn-sm p-1 px-2 rounded-2" title="{{ 'فك التجميد' if key.is_frozen else 'تجميد المفتاح' }}">
                                                     <i class="fa-solid {{ 'fa-play' if key.is_frozen else 'fa-snowflake' }}"></i>
                                                 </button>
                                             </form>
-                                            <!-- إعادة ضبط HWID -->
                                             <form action="/reset_hwid/{{ key.id }}" method="POST" class="d-inline">
                                                 <button type="submit" class="btn btn-secondary btn-sm p-1 px-2 rounded-2" title="إعادة ضبط HWID"><i class="fa-solid fa-rotate-right"></i></button>
                                             </form>
-                                            <!-- حذف المفتاح -->
                                             <form action="/delete_key/{{ key.id }}" method="POST" class="d-inline">
                                                 <button type="submit" class="btn btn-danger btn-sm p-1 px-2 rounded-2" title="حذف المفتاح"><i class="fa-solid fa-trash"></i></button>
                                             </form>
@@ -339,7 +335,7 @@
                     </div>
                 </div>
 
-                <!-- 📜 جدول سجل التحركات والنظام (Logs) -->
+                <!-- 📜 سجل التحركات للنظام (Logs) -->
                 <div class="glass-card p-4">
                     <h5 class="fw-bold mb-3 d-flex align-items-center gap-2">
                         <i class="fa-solid fa-clock-rotate-left text-warning"></i> سجل التحركات والنظام (Logs)
