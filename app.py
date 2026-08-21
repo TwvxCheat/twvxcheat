@@ -139,7 +139,7 @@ def init_db():
             );
         """)
 
-    # إضافة الأعمدة الجديدة للجداول المسبقة بأمان
+    # إضافة الأعمدة الجديدة إن لم تكن موجودة
     try:
         cursor.execute("ALTER TABLE keys ADD COLUMN is_frozen INT DEFAULT 0;")
     except Exception:
@@ -200,7 +200,7 @@ def dashboard():
     
     keys_list = query_db("SELECT * FROM keys ORDER BY id DESC") or []
     admins_list = query_db("SELECT id, username, created_at FROM admins ORDER BY id DESC") or []
-    logs_list = query_db("SELECT * FROM logs ORDER BY id DESC LIMIT 40") or []
+    logs_list = query_db("SELECT * FROM logs ORDER BY id DESC LIMIT 50") or []
     
     total_keys = len(keys_list)
     active_keys = sum(1 for k in keys_list if k.get("status") == "active")
@@ -302,7 +302,6 @@ def freeze_key(key_id):
     admin_user = session.get("username", "Admin")
     
     if is_frozen:
-        # إلغاء التجميد
         frozen_at_str = key_data.get("frozen_at")
         expires_at_str = key_data.get("expires_at")
         new_expires_at_str = expires_at_str
@@ -325,7 +324,6 @@ def freeze_key(key_id):
         log_action("إلغاء تجميد مفتاح", f"قام المشرف {admin_user} بفك تجميد المفتاح {key_data['key_code']}")
         flash("تم إلغاء تجميد المفتاح بنجاح 🟢", "success")
     else:
-        # تجميد المفتاح
         if key_data.get("status") == "expired":
             flash("لا يمكن تجميد مفتاح منتهي الصلاحية", "warning")
             return redirect(url_for("keys_page"))
@@ -370,7 +368,7 @@ def delete_key(key_id):
     flash("تم حذف المفتاح", "success")
     return redirect(url_for("keys_page"))
 
-# --- API التفعيل والمصادقة ---
+# --- API التفعيل والمصادقة المطور ---
 @app.route("/api/verify", methods=["GET", "POST"])
 def api_verify():
     if request.method == "POST":
@@ -386,33 +384,163 @@ def api_verify():
     def render_api_response(status_str, http_code=200):
         if is_browser:
             is_valid = status_str.startswith("VALID")
-            bg_color = "#090d16"
-            card_bg = "#111827"
-            text_color = "#22c55e" if is_valid else "#ef4444"
-            border_color = "#15803d" if is_valid else "#991b1b"
-            status_title = "✅ SUBSCRIPTION ACTIVE" if is_valid else "❌ ACCESS DENIED"
+            is_frozen = "FROZEN" in status_str
+            is_expired = "EXPIRED" in status_str
             
+            key_type = "BASIC"
+            days_left = "-"
+            devices = "-"
+            signature = "-"
+
+            if is_valid:
+                parts = status_str.split("|")
+                if len(parts) >= 5:
+                    key_type = parts[1]
+                    days_left = parts[2].replace("_DAYS", " يوم")
+                    devices = parts[3]
+                    signature = parts[4].replace("SIG:", "")
+
+            if is_valid:
+                title = "الاشتراك فعال ونشط"
+                theme_color = "#22c55e"
+                icon_class = "fa-circle-check"
+            elif is_frozen:
+                title = "الاشتراك مجمد مؤقتاً"
+                theme_color = "#38bdf8"
+                icon_class = "fa-snowflake"
+            elif is_expired:
+                title = "الاشتراك منتهي الصلاحية"
+                theme_color = "#f59e0b"
+                icon_class = "fa-clock"
+            else:
+                title = "تم رفض الوصول / المفتاح غير صالح"
+                theme_color = "#ef4444"
+                icon_class = "fa-circle-xmark"
+
             html_ui = f"""
             <!DOCTYPE html>
-            <html lang="en">
+            <html lang="ar" dir="rtl">
             <head>
                 <meta charset="UTF-8">
                 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                <title>TwvxCheat Security API</title>
+                <title>TwvxCheat - Verification Status</title>
+                <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.rtl.min.css" rel="stylesheet">
+                <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+                <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@500;700;900&display=swap" rel="stylesheet">
                 <style>
-                    body {{ background-color: {bg_color}; color: #ffffff; font-family: 'Segoe UI', monospace, sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; padding: 20px; box-sizing: border-box; }}
-                    .card {{ background: {card_bg}; border: 2px solid {border_color}; padding: 30px; border-radius: 16px; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.7); max-width: 420px; width: 100%; }}
-                    .status {{ color: {text_color}; font-size: 1.3rem; font-weight: bold; margin-bottom: 15px; text-shadow: 0 0 10px {text_color}66; }}
-                    .code {{ background: #030712; padding: 12px 15px; border-radius: 8px; font-family: monospace; color: #38bdf8; display: block; border: 1px solid #1e293b; font-size: 0.95rem; word-break: break-all; }}
-                    .brand {{ font-size: 0.8rem; color: #64748b; margin-top: 20px; text-transform: uppercase; letter-spacing: 2px; }}
+                    body {{
+                        background: #070a12;
+                        color: #ffffff;
+                        font-family: 'Tajawal', sans-serif;
+                        min-height: 100vh;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        padding: 15px;
+                        margin: 0;
+                    }}
+                    .status-card {{
+                        background: rgba(15, 23, 42, 0.85);
+                        border: 1px solid rgba(255, 255, 255, 0.1);
+                        border-top: 4px solid {theme_color};
+                        border-radius: 20px;
+                        backdrop-filter: blur(16px);
+                        box-shadow: 0 15px 35px rgba(0, 0, 0, 0.6), 0 0 20px {theme_color}22;
+                        max-width: 440px;
+                        width: 100%;
+                        padding: 28px 22px;
+                    }}
+                    .status-header {{
+                        color: {theme_color};
+                        font-weight: 800;
+                        font-size: 1.35rem;
+                        margin-bottom: 22px;
+                    }}
+                    .info-box {{
+                        background: rgba(3, 7, 18, 0.6);
+                        border: 1px solid rgba(255, 255, 255, 0.05);
+                        border-radius: 12px;
+                        padding: 12px;
+                        text-align: center;
+                    }}
+                    .info-label {{
+                        font-size: 0.75rem;
+                        color: #94a3b8;
+                        margin-bottom: 4px;
+                    }}
+                    .info-value {{
+                        font-weight: 700;
+                        font-size: 1rem;
+                        color: #f8fafc;
+                    }}
+                    .sig-box {{
+                        background: #030712;
+                        border: 1px dashed {theme_color}66;
+                        border-radius: 10px;
+                        padding: 10px;
+                        font-family: monospace;
+                        color: {theme_color};
+                        font-size: 0.9rem;
+                        letter-spacing: 1px;
+                    }}
+                    .footer-text {{
+                        font-size: 0.75rem;
+                        color: #64748b;
+                        margin-top: 20px;
+                        letter-spacing: 1px;
+                    }}
                 </style>
             </head>
             <body>
-                <div class="card">
-                    <div class="status">{status_title}</div>
-                    <div class="code">{status_str}</div>
-                    <div class="brand">TwvxCheat Security API</div>
+                <div class="status-card text-center">
+                    <div class="status-header d-flex align-items-center justify-content-center gap-2">
+                        <i class="fa-solid {icon_class} fs-3"></i>
+                        <span>{title}</span>
+                    </div>
+
+                    {" " if not is_valid else f'''
+                    <div class="row g-2 mb-3">
+                        <div class="col-6">
+                            <div class="info-box">
+                                <div class="info-label"><i class="fa-solid fa-crown me-1 text-warning"></i> نوع الاشتراك</div>
+                                <div class="info-value text-warning">{key_type}</div>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="info-box">
+                                <div class="info-label"><i class="fa-solid fa-hourglass-half me-1 text-info"></i> المدة المتبقية</div>
+                                <div class="info-value text-info">{days_left}</div>
+                            </div>
+                        </div>
+                        <div class="col-12">
+                            <div class="info-box">
+                                <div class="info-label"><i class="fa-solid fa-desktop me-1 text-primary"></i> الأجهزة المسجلة</div>
+                                <div class="info-value text-light">{devices}</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="sig-box d-flex justify-content-between align-items-center">
+                        <span id="sigText"><i class="fa-solid fa-shield-halved me-1"></i> SIG: {signature}</span>
+                        <button class="btn btn-sm text-light p-0 border-0" onclick="copySig('{signature}')" title="نسخ">
+                            <i class="fa-regular fa-copy text-muted ms-2" id="copyIcon"></i>
+                        </button>
+                    </div>
+                    '''}
+
+                    <div class="footer-text">
+                        <span>واجهة برمجة تطبيقات الأمان TWVXCHEAT</span>
+                    </div>
                 </div>
+
+                <script>
+                    function copySig(text) {{
+                        navigator.clipboard.writeText(text);
+                        const icon = document.getElementById('copyIcon');
+                        icon.className = 'fa-solid fa-check text-success ms-2';
+                        setTimeout(() => {{ icon.className = 'fa-regular fa-copy text-muted ms-2'; }}, 1500);
+                    }}
+                </script>
             </body>
             </html>
             """
@@ -467,7 +595,6 @@ def api_verify():
         exp_date = datetime.strptime(str(key_data["expires_at"])[:19], "%Y-%m-%d %H:%M:%S")
         days_left = max(0, (exp_date - now).days)
 
-    # تسجيل حركة دخول الزبون مع تفاصيل الكي والـ HWID
     log_action("استخدام مفتاح", f"زبون استخدم المفتاح {key_code} من جهاز HWID ({hwid})")
 
     secret_salt = "TWVX_SECRET_PROTECTION_2026"
