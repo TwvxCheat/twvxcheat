@@ -159,17 +159,25 @@ def dashboard():
 @app.route("/generate_key", methods=["GET", "POST"])
 def generate_key():
     if not check_admin():
+        if request.is_json or request.headers.get("X-Requested-With") == "XMLHttpRequest":
+            return jsonify({"success": False, "message": "غير مصرح"}), 403
         return redirect(url_for("login"))
     
     if request.method == "POST":
         try:
-            key_type = request.form.get("key_type", "basic") or "basic"
+            # قراءة البيانات سواء كانت Form عادي أو JSON/AJAX
+            if request.is_json:
+                data = request.get_json() or {}
+            else:
+                data = request.form or {}
             
-            raw_duration = request.form.get("duration_days", "30")
-            duration_days = int(raw_duration) if raw_duration and str(raw_duration).isdigit() else 30
+            key_type = data.get("key_type", "basic") or "basic"
             
-            raw_devices = request.form.get("max_devices", "1")
-            max_devices = int(raw_devices) if raw_devices and str(raw_devices).isdigit() else 1
+            raw_duration = data.get("duration_days", "30")
+            duration_days = int(raw_duration) if str(raw_duration).isdigit() else 30
+            
+            raw_devices = data.get("max_devices", "1")
+            max_devices = int(raw_devices) if str(raw_devices).isdigit() else 1
             
             key_code = f"TWVX-{key_type.upper()}-" + secrets.token_hex(4).upper()
             
@@ -181,11 +189,23 @@ def generate_key():
                         VALUES (%s, %s, %s, %s, 'active')
                     """, (key_code, key_type, duration_days, max_devices))
                 conn.close()
+                
+                # الرد بحسب طريقة التوليد (AJAX أو Form)
+                if request.is_json or request.headers.get("X-Requested-With") == "XMLHttpRequest":
+                    return jsonify({"success": True, "message": "تم توليد المفتاح بنجاح!", "key": key_code})
+                
                 flash("تم توليد المفتاح بنجاح!", "success")
+                return redirect(url_for("keys_page"))
             else:
-                flash(f"خطأ في الاتصال بقاعدة البيانات: {err}", "danger")
+                msg = f"خطأ في الاتصال بقاعدة البيانات: {err}"
+                if request.is_json or request.headers.get("X-Requested-With") == "XMLHttpRequest":
+                    return jsonify({"success": False, "message": msg}), 500
+                flash(msg, "danger")
         except Exception as e:
-            flash(f"حدث خطأ أثناء الإنشاء: {str(e)}", "danger")
+            msg = f"حدث خطأ أثناء الإنشاء: {str(e)}"
+            if request.is_json or request.headers.get("X-Requested-With") == "XMLHttpRequest":
+                return jsonify({"success": False, "message": msg}), 500
+            flash(msg, "danger")
             
     return redirect(url_for("keys_page"))
 
