@@ -21,7 +21,7 @@ class KeyModel:
     def __init__(self, id, key_code, key_type='basic', status='active', used_by='-', created_at=''):
         self.id = id
         self.key_code = key_code
-        self.key = key_code         # لدعم {{ key.key }}
+        self.key = key_code
         self.key_type = key_type or 'basic'
         self.status = status or 'active'
         self.used_by = used_by or '-'
@@ -63,7 +63,7 @@ def connect_db():
     except Exception as e:
         return None, str(e)
 
-# ================= INIT & MIGRATE DB =================
+# ================= INIT DB =================
 def init_db():
     conn, err = connect_db()
     if conn:
@@ -95,7 +95,7 @@ init_db()
 def check_admin():
     return session.get("logged_in")
 
-# ================= DETAILED ERROR HANDLER =================
+# ================= ERROR HANDLER =================
 @app.errorhandler(500)
 def handle_500_error(e):
     error_details = traceback.format_exc()
@@ -131,13 +131,14 @@ def logout():
     session.clear()
     return redirect("/login")
 
+# ربط كافة الأسماء المحتملة التي قد يستدعيها base.html
 @app.route("/dashboard", methods=["GET", "POST"], endpoint="dashboard")
 @app.route("/keys", methods=["GET", "POST"], endpoint="keys")
+@app.route("/keys_page", methods=["GET", "POST"], endpoint="keys_page")
 def dashboard():
     if not check_admin():
         return redirect("/login")
     
-    # معالجة طلب إنشاء مفتاح جديد من اللوحة
     if request.method == "POST":
         key_type = request.form.get("key_type", "basic")
         new_key = "TWVX-" + ''.join(random.choices(string.ascii_uppercase + string.digits, k=10))
@@ -187,7 +188,14 @@ def dashboard():
         available_keys=available_keys
     )
 
+@app.route("/generate", methods=["GET", "POST"], endpoint="generate")
+@app.route("/generate_key", methods=["GET", "POST"], endpoint="generate_key")
+@app.route("/generate_page", methods=["GET", "POST"], endpoint="generate_page")
+def generate_page():
+    return redirect("/dashboard")
+
 @app.route("/delete/<int:key_id>", endpoint="delete_key")
+@app.route("/delete_key/<int:key_id>", endpoint="delete")
 def delete_key(key_id=None):
     if not check_admin():
         return redirect("/login")
@@ -200,6 +208,10 @@ def delete_key(key_id=None):
             flash("تم حذف المفتاح 🗑️", "warning")
         except Exception as e:
             flash(f"خطأ الحذف: {e}", "danger")
+    return redirect("/dashboard")
+
+@app.route("/search", endpoint="search")
+def search():
     return redirect("/dashboard")
 
 @app.route("/verify", methods=["GET", "POST"], endpoint="verify")
