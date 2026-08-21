@@ -9,7 +9,7 @@ app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "twvx_cheat_secret_key_12345")
 DB_FILE = "twvx_db.db"
 
-# --- نظام الاتصال المزدوج (MySQL / SQLite Fallback) ---
+# --- نظام الاتصال بقاعدة البيانات ---
 def get_db():
     if os.environ.get("DB_HOST"):
         try:
@@ -54,7 +54,7 @@ def query_db(query, args=(), fetchone=False, commit=False):
         conn.close()
         return [dict(r) for r in rows]
 
-# --- تهيئة الجداول ---
+# --- تهيئة الجداول وتحديثها تلقائياً ---
 def init_db():
     conn, db_type = get_db()
     cursor = conn.cursor()
@@ -65,6 +65,7 @@ def init_db():
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 key_code TEXT UNIQUE NOT NULL,
                 key_type TEXT DEFAULT 'basic',
+                created_by TEXT DEFAULT 'Admin',
                 status TEXT DEFAULT 'active',
                 used_by TEXT DEFAULT '-',
                 duration_days INTEGER DEFAULT 30,
@@ -75,14 +76,10 @@ def init_db():
                 expires_at DATETIME DEFAULT NULL
             );
         """)
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS admins (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                username TEXT UNIQUE NOT NULL,
-                password TEXT NOT NULL,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            );
-        """)
+        try:
+            cursor.execute("ALTER TABLE keys ADD COLUMN created_by TEXT DEFAULT 'Admin';")
+        except Exception:
+            pass
         conn.commit()
     else:
         cursor.execute("""
@@ -90,6 +87,7 @@ def init_db():
                 `id` INT AUTO_INCREMENT PRIMARY KEY,
                 `key_code` VARCHAR(255) UNIQUE NOT NULL,
                 `key_type` VARCHAR(50) DEFAULT 'basic',
+                `created_by` VARCHAR(100) DEFAULT 'Admin',
                 `status` VARCHAR(50) DEFAULT 'active',
                 `used_by` VARCHAR(255) DEFAULT '-',
                 `duration_days` INT DEFAULT 30,
@@ -100,14 +98,10 @@ def init_db():
                 `expires_at` DATETIME DEFAULT NULL
             );
         """)
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS `admins` (
-                `id` INT AUTO_INCREMENT PRIMARY KEY,
-                `username` VARCHAR(100) UNIQUE NOT NULL,
-                `password` VARCHAR(255) NOT NULL,
-                `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            );
-        """)
+        try:
+            cursor.execute("ALTER TABLE `keys` ADD COLUMN `created_by` VARCHAR(100) DEFAULT 'Admin';")
+        except Exception:
+            pass
     conn.close()
 
 init_db()
@@ -177,12 +171,13 @@ def generate_key():
             key_type = request.form.get("key_type", "basic") or "basic"
             duration_days = int(request.form.get("duration_days", 30))
             max_devices = int(request.form.get("max_devices", 1))
+            admin_user = session.get("username", "TwvxCheat")
             
             key_code = f"TWVX-{key_type.upper()}-" + secrets.token_hex(4).upper()
             
             query_db(
-                "INSERT INTO keys (key_code, key_type, duration_days, max_devices, status) VALUES (%s, %s, %s, %s, 'active')",
-                (key_code, key_type, duration_days, max_devices),
+                "INSERT INTO keys (key_code, key_type, created_by, duration_days, max_devices, status) VALUES (%s, %s, %s, %s, %s, 'active')",
+                (key_code, key_type, admin_user, duration_days, max_devices),
                 commit=True
             )
             flash("تم توليد المفتاح بنجاح!", "success")
