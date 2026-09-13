@@ -4,11 +4,26 @@ import sqlite3
 import pymysql
 import hashlib
 from datetime import datetime, timedelta
-from flask import Flask, render_template, request, redirect, session, jsonify, flash, url_for
+from flask import Flask, render_template, request, redirect, session, jsonify, flash, url_for, Response
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "twvx_cheat_secret_key_12345")
 DB_FILE = "twvx_db.db"
+
+# ==================================================
+#   نص الإعلان (بدلو من هنا)
+# ==================================================
+ANNOUNCEMENT_TEXT = """
+New Update Available!
+
+- Improved Aimbot Performance
+- New ESP Features Added
+- Better Bypass System
+
+Join us on Telegram: @twvissl1am
+
+Thank you for choosing TWV X CHEAT!
+"""
 
 # --- الاتصال بقاعدة البيانات (دعم MySQL و SQLite تلقائياً) ---
 def get_db():
@@ -709,6 +724,17 @@ def api_verify():
     response_payload = f"VALID|{key_type}|{days_left}_DAYS|{len(registered_hwids)}/{max_devices}|SIG:{signature}"
 
     return render_api_response(response_payload, 200)
+
+# ==================================================
+#   إعلانات للمستخدمين (تظهر في المود)
+# ==================================================
+@app.route("/api/announcement", methods=["GET"])
+def api_announcement():
+    return Response(
+        ANNOUNCEMENT_TEXT.strip(),
+        mimetype="text/plain; charset=utf-8"
+    )
+
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
