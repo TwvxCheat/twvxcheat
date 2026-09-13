@@ -14,13 +14,16 @@ DB_FILE = "twvx_db.db"
 #   نص الإعلان (بدلو من هنا)
 # ==================================================
 ANNOUNCEMENT_TEXT = """
-New Update Available!
+TWV X CHEAT v2.0
 
-- Improved Aimbot Performance
-- New ESP Features Added
-- Better Bypass System
+Status  : ONLINE
+Server  : WORKING
 
-Join us on Telegram: @twvissl1am
+New in this version:
+- Faster Bypass
+
+Support: t.me/twvissl1am
+
 
 Thank you for choosing TWV X CHEAT!
 """
