@@ -385,7 +385,9 @@ def delete_key(key_id):
     flash("تم حذف المفتاح", "success")
     return redirect(url_for("keys_page"))
 
-# --- API التفعيل والمصادقة المطور مع نموذج فحص بمفتاح فقط ---
+# ==================================================
+#   API التفعيل والمصادقة — مع نموذج فحص بمفتاح فقط
+# ==================================================
 @app.route("/api/verify", methods=["GET", "POST"])
 def api_verify():
     if request.method == "POST":
@@ -396,9 +398,10 @@ def api_verify():
         key_code = request.args.get("key", "").strip()
         hwid = request.args.get("hwid", "").strip()
 
+    # العميل C++ يبعث X-Loader: 1، والمتصفح لا يبعثه
     is_browser = "text/html" in request.headers.get("Accept", "") and not request.headers.get("X-Loader")
 
-    # واجهة إدخال البيانات مباشرة عند فتح الرابط من المتصفح بدون مفتاح
+    # واجهة إدخال البيانات عند فتح الرابط من المتصفح بدون مفتاح
     if is_browser and not key_code:
         return """
         <!DOCTYPE html>
