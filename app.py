@@ -11,7 +11,7 @@ app.secret_key = os.environ.get("SECRET_KEY", "twvx_cheat_secret_key_12345")
 DB_FILE = "twvx_db.db"
 
 # ==================================================
-#   نص الإعلان (بدلو من هنا)
+#   نص الإعلان
 # ==================================================
 ANNOUNCEMENT_TEXT = """
 TWV X CHEAT v2.0
@@ -28,7 +28,7 @@ Support: t.me/twvissl1am
 Thank you for choosing TWV X CHEAT!
 """
 
-# --- الاتصال بقاعدة البيانات (دعم MySQL و SQLite تلقائياً) ---
+# --- الاتصال بقاعدة البيانات ---
 def get_db():
     if os.environ.get("DB_HOST"):
         try:
@@ -73,14 +73,12 @@ def query_db(query, args=(), fetchone=False, commit=False):
         conn.close()
         return [dict(r) for r in rows]
 
-# --- دالة تسجيل التحركات (Logs) ---
 def log_action(action, details):
     try:
         query_db("INSERT INTO logs (action, details) VALUES (%s, %s)", (action, details), commit=True)
     except Exception as e:
         print(f"Log Error: {e}")
 
-# --- تهيئة الجداول وترقيتها ---
 def init_db():
     conn, db_type = get_db()
     cursor = conn.cursor()
@@ -177,7 +175,9 @@ init_db()
 def check_admin():
     return session.get("logged_in") is True
 
-# --- المسارات والصفحات ---
+# ==================================================
+#   المسارات والصفحات
+# ==================================================
 
 @app.route("/")
 def index():
@@ -386,7 +386,7 @@ def delete_key(key_id):
     return redirect(url_for("keys_page"))
 
 # ==================================================
-#   API التفعيل والمصادقة — مع نموذج فحص بمفتاح فقط
+#   API للتحقق من المفتاح (تستعملها التطبيقات الخارجية)
 # ==================================================
 @app.route("/api/verify", methods=["GET", "POST"])
 def api_verify():
@@ -398,280 +398,28 @@ def api_verify():
         key_code = request.args.get("key", "").strip()
         hwid = request.args.get("hwid", "").strip()
 
-    # العميل C++ يبعث X-Loader: 1، والمتصفح لا يبعثه
+    # detect browser vs external client
     is_browser = "text/html" in request.headers.get("Accept", "") and not request.headers.get("X-Loader")
 
-    # واجهة إدخال البيانات عند فتح الرابط من المتصفح بدون مفتاح
+    # If browser and no key → show search form
     if is_browser and not key_code:
-        return """
-        <!DOCTYPE html>
-        <html lang="ar" dir="rtl">
-        <head>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>TwvxCheat - فحص الاشتراك</title>
-            <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.rtl.min.css" rel="stylesheet">
-            <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
-            <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@500;700;900&display=swap" rel="stylesheet">
-            <style>
-                body {
-                    background: #070a12;
-                    color: #ffffff;
-                    font-family: 'Tajawal', sans-serif;
-                    min-height: 100vh;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    padding: 15px;
-                    margin: 0;
-                }
-                .search-card {
-                    background: rgba(15, 23, 42, 0.85);
-                    border: 1px solid rgba(255, 255, 255, 0.1);
-                    border-radius: 20px;
-                    backdrop-filter: blur(16px);
-                    box-shadow: 0 15px 35px rgba(0, 0, 0, 0.6);
-                    max-width: 420px;
-                    width: 100%;
-                    padding: 30px 24px;
-                }
-                .form-control {
-                    background: rgba(3, 7, 18, 0.8) !important;
-                    border: 1px solid #374151 !important;
-                    color: #fff !important;
-                    border-radius: 10px;
-                    padding: 12px;
-                }
-                .form-control:focus {
-                    border-color: #38bdf8 !important;
-                    box-shadow: 0 0 10px rgba(56, 189, 248, 0.3) !important;
-                }
-                .btn-check-key {
-                    background: linear-gradient(135deg, #2563eb, #38bdf8);
-                    color: #fff;
-                    font-weight: 700;
-                    border: none;
-                    border-radius: 10px;
-                    padding: 12px;
-                    width: 100%;
-                    transition: 0.3s;
-                }
-                .btn-check-key:hover {
-                    opacity: 0.9;
-                    transform: translateY(-2px);
-                }
-            </style>
-        </head>
-        <body>
-            <div class="search-card text-center">
-                <div class="mb-4">
-                    <i class="fa-solid fa-shield-halved text-info fs-1 mb-2"></i>
-                    <h4 class="fw-bold">فحص حالة الاشتراك</h4>
-                    <p class="text-muted small">أدخل المفتاح للتحقق من الحالة والتفاصيل</p>
-                </div>
-                <form action="/api/verify" method="GET">
-                    <div class="mb-3 text-start">
-                        <label class="form-label small text-muted">رمز المفتاح (Key)</label>
-                        <input type="text" name="key" class="form-control" placeholder="TWVX-BASIC-XXXX" required>
-                    </div>
-                    <div class="mb-4 text-start">
-                        <label class="form-label small text-muted">معرف الجهاز (HWID) <span class="text-secondary">(اختياري)</span></label>
-                        <input type="text" name="hwid" class="form-control" placeholder="اتركه فارغاً للفحص السريع">
-                    </div>
-                    <button type="submit" class="btn btn-check-key">
-                        <i class="fa-solid fa-magnifying-glass me-1"></i> فحص الآن
-                    </button>
-                </form>
-            </div>
-        </body>
-        </html>
-        """, 200
+        return render_verify_form()
 
-    def render_api_response(status_str, http_code=200):
-        if is_browser:
-            is_valid = status_str.startswith("VALID")
-            is_frozen = "FROZEN" in status_str
-            is_expired = "EXPIRED" in status_str
-            
-            key_type = "BASIC"
-            days_left = "-"
-            devices = "-"
-            signature = "-"
-
-            if is_valid:
-                parts = status_str.split("|")
-                if len(parts) >= 5:
-                    key_type = parts[1]
-                    days_left = parts[2].replace("_DAYS", " يوم")
-                    devices = parts[3]
-                    signature = parts[4].replace("SIG:", "")
-
-            if is_valid:
-                title = "الاشتراك فعال ونشط"
-                theme_color = "#22c55e"
-                icon_class = "fa-circle-check"
-            elif is_frozen:
-                title = "الاشتراك مجمد مؤقتاً"
-                theme_color = "#38bdf8"
-                icon_class = "fa-snowflake"
-            elif is_expired:
-                title = "الاشتراك منتهي الصلاحية"
-                theme_color = "#f59e0b"
-                icon_class = "fa-clock"
-            else:
-                title = "تم رفض الوصول / المفتاح غير صالح"
-                theme_color = "#ef4444"
-                icon_class = "fa-circle-xmark"
-
-            html_ui = f"""
-            <!DOCTYPE html>
-            <html lang="ar" dir="rtl">
-            <head>
-                <meta charset="UTF-8">
-                <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                <title>TwvxCheat - Verification Status</title>
-                <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.rtl.min.css" rel="stylesheet">
-                <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
-                <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@500;700;900&display=swap" rel="stylesheet">
-                <style>
-                    body {{
-                        background: #070a12;
-                        color: #ffffff;
-                        font-family: 'Tajawal', sans-serif;
-                        min-height: 100vh;
-                        display: flex;
-                        align-items: center;
-                        justify-content: center;
-                        padding: 15px;
-                        margin: 0;
-                    }}
-                    .status-card {{
-                        background: rgba(15, 23, 42, 0.85);
-                        border: 1px solid rgba(255, 255, 255, 0.1);
-                        border-top: 4px solid {theme_color};
-                        border-radius: 20px;
-                        backdrop-filter: blur(16px);
-                        box-shadow: 0 15px 35px rgba(0, 0, 0, 0.6), 0 0 20px {theme_color}22;
-                        max-width: 440px;
-                        width: 100%;
-                        padding: 28px 22px;
-                    }}
-                    .status-header {{
-                        color: {theme_color};
-                        font-weight: 800;
-                        font-size: 1.35rem;
-                        margin-bottom: 22px;
-                    }}
-                    .info-box {{
-                        background: rgba(3, 7, 18, 0.6);
-                        border: 1px solid rgba(255, 255, 255, 0.05);
-                        border-radius: 12px;
-                        padding: 12px;
-                        text-align: center;
-                    }}
-                    .info-label {{
-                        font-size: 0.75rem;
-                        color: #94a3b8;
-                        margin-bottom: 4px;
-                    }}
-                    .info-value {{
-                        font-weight: 700;
-                        font-size: 1rem;
-                        color: #f8fafc;
-                    }}
-                    .sig-box {{
-                        background: #030712;
-                        border: 1px dashed {theme_color}66;
-                        border-radius: 10px;
-                        padding: 10px;
-                        font-family: monospace;
-                        color: {theme_color};
-                        font-size: 0.9rem;
-                        letter-spacing: 1px;
-                    }}
-                    .footer-text {{
-                        font-size: 0.75rem;
-                        color: #64748b;
-                        margin-top: 20px;
-                    }}
-                </style>
-            </head>
-            <body>
-                <div class="status-card text-center">
-                    <div class="status-header d-flex align-items-center justify-content-center gap-2">
-                        <i class="fa-solid {icon_class} fs-3"></i>
-                        <span>{title}</span>
-                    </div>
-
-                    {" " if not is_valid else f'''
-                    <div class="row g-2 mb-3">
-                        <div class="col-6">
-                            <div class="info-box">
-                                <div class="info-label"><i class="fa-solid fa-crown me-1 text-warning"></i> نوع الاشتراك</div>
-                                <div class="info-value text-warning">{key_type}</div>
-                            </div>
-                        </div>
-                        <div class="col-6">
-                            <div class="info-box">
-                                <div class="info-label"><i class="fa-solid fa-hourglass-half me-1 text-info"></i> المدة المتبقية</div>
-                                <div class="info-value text-info">{days_left}</div>
-                            </div>
-                        </div>
-                        <div class="col-12">
-                            <div class="info-box">
-                                <div class="info-label"><i class="fa-solid fa-desktop me-1 text-primary"></i> الأجهزة المسجلة</div>
-                                <div class="info-value text-light">{devices}</div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="sig-box d-flex justify-content-between align-items-center">
-                        <span id="sigText"><i class="fa-solid fa-shield-halved me-1"></i> SIG: {signature}</span>
-                        <button class="btn btn-sm text-light p-0 border-0" onclick="copySig('{signature}')" title="نسخ">
-                            <i class="fa-regular fa-copy text-muted ms-2" id="copyIcon"></i>
-                        </button>
-                    </div>
-                    '''}
-
-                    <div class="mt-3">
-                        <a href="/api/verify" class="btn btn-sm btn-outline-secondary w-100 rounded-3">فحص مفتاح آخر</a>
-                    </div>
-
-                    <div class="footer-text">
-                        <span>واجهة برمجة تطبيقات الأمان TWVXCHEAT</span>
-                    </div>
-                </div>
-
-                <script>
-                    function copySig(text) {{
-                        navigator.clipboard.writeText(text);
-                        const icon = document.getElementById('copyIcon');
-                        icon.className = 'fa-solid fa-check text-success ms-2';
-                        setTimeout(() => {{ icon.className = 'fa-regular fa-copy text-muted ms-2'; }}, 1500);
-                    }}
-                </script>
-            </body>
-            </html>
-            """
-            return html_ui, http_code
-        return status_str, http_code
-
-    # بالنسبة للبرنامج/اللودر الخارجي، يظل الـ HWID إجبارياً للربط والمصادقة
+    # If external client and missing key/hwid → error
     if not is_browser and (not key_code or not hwid):
-        return render_api_response("INVALID:MISSING_DATA", 400)
+        return "INVALID:MISSING_DATA", 400
 
-    if not key_code:
-        return render_api_response("INVALID:MISSING_DATA", 400)
-
+    # If browser and only key (no hwid), just show info
     key_data = query_db("SELECT * FROM keys WHERE key_code=%s", (key_code,), fetchone=True)
+
     if not key_data:
-        return render_api_response("INVALID:NOT_FOUND", 404)
+        return format_response("INVALID:NOT_FOUND", is_browser, 404)
 
     if key_data.get("status") == "banned":
-        return render_api_response("INVALID:BANNED", 403)
+        return format_response("INVALID:BANNED", is_browser, 403)
 
     if key_data.get("is_frozen") == 1 or key_data.get("status") == "frozen":
-        return render_api_response("INVALID:FROZEN", 403)
+        return format_response("INVALID:FROZEN", is_browser, 403)
 
     now = datetime.now()
 
@@ -679,26 +427,26 @@ def api_verify():
         exp_date = datetime.strptime(str(key_data["expires_at"])[:19], "%Y-%m-%d %H:%M:%S")
         if now > exp_date:
             query_db("UPDATE keys SET status='expired' WHERE id=%s", (key_data["id"],), commit=True)
-            return render_api_response("INVALID:EXPIRED", 403)
+            return format_response("INVALID:EXPIRED", is_browser, 403)
 
     registered_hwids = [h for h in (key_data.get("hwid") or "").split(",") if h]
     max_devices = key_data.get("max_devices", 1)
 
-    # إذا تم الفحص عبر المتصفح بدون HWID، يتم عرض معلومات المفتاح فقط دون تسجيل جهاز
+    # Browser check without hwid
     if is_browser and not hwid:
         if key_data.get("activated_at"):
             exp_date = datetime.strptime(str(key_data["expires_at"])[:19], "%Y-%m-%d %H:%M:%S")
             days_left = max(0, (exp_date - now).days)
         else:
             days_left = key_data.get("duration_days", 30)
-            
         key_type = (key_data.get("key_type") or "basic").upper()
-        response_payload = f"VALID|{key_type}|{days_left}_DAYS|{len(registered_hwids)}/{max_devices}|SIG:BROWSER_CHECK"
-        return render_api_response(response_payload, 200)
+        payload = f"VALID|{key_type}|{days_left}_DAYS|{len(registered_hwids)}/{max_devices}|SIG:BROWSER_CHECK"
+        return format_response(payload, is_browser, 200)
 
+    # Client with hwid → do registration if new
     if hwid not in registered_hwids:
         if len(registered_hwids) >= max_devices:
-            return render_api_response("INVALID:MAX_DEVICES_REACHED", 403)
+            return format_response("INVALID:MAX_DEVICES_REACHED", is_browser, 403)
 
         registered_hwids.append(hwid)
         new_hwid_str = ",".join(registered_hwids)
@@ -727,19 +475,118 @@ def api_verify():
     signature = hashlib.md5(raw_sig.encode()).hexdigest()[:10].upper()
 
     key_type = (key_data.get("key_type") or "basic").upper()
-    response_payload = f"VALID|{key_type}|{days_left}_DAYS|{len(registered_hwids)}/{max_devices}|SIG:{signature}"
+    payload = f"VALID|{key_type}|{days_left}_DAYS|{len(registered_hwids)}/{max_devices}|SIG:{signature}"
+    return format_response(payload, is_browser, 200)
 
-    return render_api_response(response_payload, 200)
+
+def format_response(status_str, is_browser, http_code):
+    """Return plain text for clients, HTML for browsers."""
+    if not is_browser:
+        return status_str, http_code
+    
+    # Parse payload
+    is_valid = status_str.startswith("VALID")
+    if is_valid:
+        parts = status_str.split("|")
+        key_type = parts[1] if len(parts) > 1 else "BASIC"
+        days_left = parts[2].replace("_DAYS", " يوم") if len(parts) > 2 else "-"
+        devices = parts[3] if len(parts) > 3 else "-"
+        signature = parts[4].replace("SIG:", "") if len(parts) > 4 else "-"
+        title = "الاشتراك فعال ونشط"
+        color = "#22c55e"
+        icon = "fa-circle-check"
+    elif "FROZEN" in status_str:
+        title, color, icon = "الاشتراك مجمد مؤقتاً", "#38bdf8", "fa-snowflake"
+        key_type = days_left = devices = signature = "-"
+    elif "EXPIRED" in status_str:
+        title, color, icon = "الاشتراك منتهي الصلاحية", "#f59e0b", "fa-clock"
+        key_type = days_left = devices = signature = "-"
+    else:
+        title, color, icon = "تم رفض الوصول / المفتاح غير صالح", "#ef4444", "fa-circle-xmark"
+        key_type = days_left = devices = signature = "-"
+
+    detail_html = ""
+    if is_valid:
+        detail_html = f"""
+        <div class="row g-2 mb-3">
+            <div class="col-6"><div class="info-box">
+                <div class="info-label">👑 نوع الاشتراك</div>
+                <div class="info-value text-warning">{key_type}</div>
+            </div></div>
+            <div class="col-6"><div class="info-box">
+                <div class="info-label">⏳ المدة المتبقية</div>
+                <div class="info-value text-info">{days_left}</div>
+            </div></div>
+            <div class="col-12"><div class="info-box">
+                <div class="info-label">💻 الأجهزة المسجلة</div>
+                <div class="info-value text-light">{devices}</div>
+            </div></div>
+        </div>
+        <div class="sig-box">🛡️ SIG: {signature}</div>
+        """
+
+    return f"""<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TwvxCheat - حالة الاشتراك</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.rtl.min.css" rel="stylesheet">
+<style>
+body {{ background:#070a12; color:#fff; font-family:sans-serif; min-height:100vh; display:flex; align-items:center; justify-content:center; padding:15px; margin:0; }}
+.card {{ background:rgba(15,23,42,0.85); border:1px solid rgba(255,255,255,0.1); border-top:4px solid {color}; border-radius:20px; max-width:440px; width:100%; padding:28px 22px; text-align:center; }}
+h4 {{ color:{color}; font-weight:800; margin-bottom:22px; }}
+.info-box {{ background:rgba(3,7,18,0.6); border-radius:12px; padding:12px; margin-bottom:8px; }}
+.info-label {{ font-size:0.75rem; color:#94a3b8; }}
+.info-value {{ font-weight:700; color:#f8fafc; }}
+.sig-box {{ background:#030712; border:1px dashed {color}; border-radius:10px; padding:10px; font-family:monospace; color:{color}; }}
+</style>
+</head>
+<body>
+<div class="card">
+    <h4>{title}</h4>
+    {detail_html}
+    <a href="/api/verify" class="btn btn-outline-secondary btn-sm mt-3">فحص مفتاح آخر</a>
+</div>
+</body>
+</html>""", http_code
+
+
+def render_verify_form():
+    return """<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TwvxCheat - فحص الاشتراك</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.rtl.min.css" rel="stylesheet">
+<style>
+body { background:#070a12; color:#fff; font-family:sans-serif; min-height:100vh; display:flex; align-items:center; justify-content:center; padding:15px; margin:0; }
+.card { background:rgba(15,23,42,0.85); border:1px solid rgba(255,255,255,0.1); border-radius:20px; max-width:420px; width:100%; padding:30px 24px; }
+.form-control { background:rgba(3,7,18,0.8) !important; border:1px solid #374151 !important; color:#fff !important; border-radius:10px; padding:12px; }
+.btn-check { background:linear-gradient(135deg,#2563eb,#38bdf8); color:#fff; font-weight:700; border:none; border-radius:10px; padding:12px; width:100%; }
+</style>
+</head>
+<body>
+<div class="card text-center">
+    <h4 class="mb-2">فحص حالة الاشتراك</h4>
+    <p class="text-muted small mb-4">أدخل المفتاح للتحقق</p>
+    <form action="/api/verify" method="GET">
+        <input type="text" name="key" class="form-control mb-3" placeholder="TWVX-BASIC-XXXX" required>
+        <input type="text" name="hwid" class="form-control mb-4" placeholder="HWID (اختياري)">
+        <button type="submit" class="btn btn-check">فحص الآن</button>
+    </form>
+</div>
+</body>
+</html>"""
+
 
 # ==================================================
-#   إعلانات للمستخدمين (تظهر في المود)
+#   إعلانات
 # ==================================================
 @app.route("/api/announcement", methods=["GET"])
 def api_announcement():
-    return Response(
-        ANNOUNCEMENT_TEXT.strip(),
-        mimetype="text/plain; charset=utf-8"
-    )
+    return Response(ANNOUNCEMENT_TEXT.strip(), mimetype="text/plain; charset=utf-8")
 
 
 if __name__ == "__main__":
